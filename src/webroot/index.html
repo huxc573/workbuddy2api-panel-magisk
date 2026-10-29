@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>WorkBuddy2API</title>
+<style>
+  :root{color-scheme:dark light;--bg:#0f1115;--fg:#e6e8ec;--dim:#8b93a1;--btn:#2f6fed;--btn2:#1b2029;--line:#252a33;--warn:#e0a33e}
+  @media (prefers-color-scheme:light){:root{--bg:#f6f7f9;--fg:#1a1d22;--dim:#6b7280;--btn2:#e9edf3;--line:#e3e6eb;--warn:#9a6b12}}
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{background:var(--bg);color:var(--fg);
+       font:15px/1.6 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+       display:flex;align-items:center;justify-content:center;
+       padding:calc(24px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right))
+               calc(24px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left))}
+  .card{width:100%;max-width:440px}
+  h1{margin:0 0 4px;font-size:17px;font-weight:600;letter-spacing:.2px}
+  .sub{color:var(--dim);font-size:12.5px;margin:0 0 16px}
+  .box{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:10px 0;margin:0 0 16px}
+  .row{display:flex;align-items:baseline;gap:10px;padding:3px 0}
+  .k{color:var(--dim);font-size:12px;flex:0 0 52px}
+  .v{font-size:13px;word-break:break-all;flex:1}
+  code{background:var(--btn2);padding:1px 5px;border-radius:5px;font-size:12.5px;word-break:break-all;font-family:ui-monospace,Menlo,monospace}
+  a.b,button.b{display:block;width:100%;padding:13px 16px;margin:0 0 10px;border:0;border-radius:12px;
+       font:inherit;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}
+  a.b{background:var(--btn);color:#fff}
+  button.b{background:var(--btn2);color:var(--fg)}
+  .tip{color:var(--dim);font-size:12px;margin:14px 0 0;line-height:1.75}
+  .warn{color:var(--warn)}
+  .copied{color:var(--btn)}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>WorkBuddy2API</h1>
+  <p class="sub">OpenAI 兼容网关 · 手机本地运行</p>
+
+  <div class="box">
+    <div class="row"><span class="k">面板</span><span class="v"><code id="url">正在读取…</code></span></div>
+    <div class="row"><span class="k">密钥</span><span class="v"><code id="key">—</code></span></div>
+    <div class="row"><span class="k">状态</span><span class="v" id="state">—</span></div>
+  </div>
+
+  <button class="b" id="copy" type="button">复制密钥</button>
+  <a class="b" id="go" href="#">打开面板</a>
+  <button class="b" id="br" type="button">用浏览器打开</button>
+
+  <p class="tip" id="tip">&nbsp;</p>
+</div>
+<script>
+(function () {
+  // 端口与密钥从模块数据目录读（KernelSU / APatch 的 WebUI 都注入 ksu 全局对象）；
+  // 没有这个对象就是 Magisk 原生环境，读不到 —— 那时只能靠命令行。
+  function sh(cmd) {
+    try {
+      var k = (typeof ksu !== 'undefined' && ksu) ? ksu : (window.apatch || null);
+      if (!k || typeof k.exec !== 'function') return null;
+      var r = k.exec(cmd);
+      if (r && typeof r === 'object') {
+        var o = (r.stdout != null) ? r.stdout : ((r.result != null) ? r.result : null);
+        return (o == null) ? null : String(o);
+      }
+      return (r == null) ? null : String(r);
+    } catch (e) { return null; }
+  }
+
+  var PORT = 7863;
+  var raw = sh('cat /data/adb/wb2a/port');
+  var n = raw ? raw.replace(/[^0-9]/g, '').slice(0, 5) : '';
+  if (n && +n >= 1024 && +n <= 65535) { PORT = +n; }
+
+  // 面板在 /panel/（根路径 / 是 404，实测）
+  var url = 'http://127.0.0.1:' + PORT + '/panel/';
+  document.getElementById('url').textContent = url;
+  document.getElementById('go').href = url;
+
+  // 密钥：优先 apikey.txt（首启时落的一份），回退从 config.json 里抠
+  var key = sh('cat /data/adb/wb2a/apikey.txt') || '';
+  key = key.replace(/\s+/g, '');
+  if (!key) {
+    var cfg = sh("grep -o '\"api_key\"[^,]*' /data/adb/wb2a/config.json");
+    if (cfg) {
+      var m = cfg.match(/:\s*"([^"]+)"/);
+      if (m) key = m[1];
+    }
+  }
+  document.getElementById('key').textContent = key || '读取不到（用命令行 sh action.sh key）';
+
+  // 状态：进程在不在（pgrep 匹配运行体完整路径）
+  var pid = sh('pgrep -f /data/adb/wb2a/rt/bin/wb2api');
+  var pid2 = pid ? String(pid).replace(/[^0-9]/g, '') : '';
+  document.getElementById('state').innerHTML = pid2
+    ? '运行中 · pid ' + pid2
+    : '<span class="warn">未运行</span> — 回上一页点「执行」重启网关';
+
+  document.getElementById('copy').addEventListener('click', function () {
+    var btn = this;
+    function ok() { btn.textContent = '已复制'; btn.className = 'b copied'; setTimeout(function () {
+      btn.textContent = '复制密钥'; btn.className = 'b'; }, 1500); }
+    if (key && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(key).then(ok, fallback);
+    } else { fallback(); }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = key; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); ok(); } catch (e) { btn.textContent = '复制失败，手动选中上面的密钥'; }
+      document.body.removeChild(ta);
+    }
+  });
+
+  document.getElementById('br').addEventListener('click', function () {
+    if (sh('am start -a android.intent.action.VIEW -d ' + url) === null) window.open(url, '_blank');
+  });
+
+  document.getElementById('tip').innerHTML =
+    '面板首次打开要填上面的密钥（存在本机 localStorage）。<br>' +
+    '同网段的电脑访问：<code>http://&lt;手机IP&gt;:' + PORT + '/panel/</code>，' +
+    '改端口 <code>sh action.sh config</code>。';
+})();
+</script>
+</body>
+</html>

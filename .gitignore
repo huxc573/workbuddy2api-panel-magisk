@@ -1,0 +1,10 @@
+# 运行体：由 CI 从上游 release 取出，不入库（约 12MB）
+runtime/
+# 打包产物
+publish/
+.stage/
+# 本地取证/一次性的东西
+*.zip
+*.tgz
+__pycache__/
+notes.md

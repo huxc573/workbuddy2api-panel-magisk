@@ -1,0 +1,112 @@
+name: build
+
+# 上游一发新版 → 自动取运行体、打包、发 Release。
+# 版本号：YY.MM.DD_x（北京时间当天第 x 个包），versionCode = YYMMDD*100+x。
+on:
+  workflow_dispatch:
+    inputs:
+      upstream:
+        description: '上游 tag（留空＝自动取最新，例如 v2026.10.29.1418）'
+        required: false
+      force:
+        description: '上游没变也强出一个新包'
+        type: boolean
+        default: false
+  schedule:
+    # 上游是「push 到 main 就可能出包」的时间戳 tag（2026.10.29.1418 这种），
+    # 实测一天 3~6 个，白天为主。每 3 小时查一次（cron 是 UTC，落到北京
+    # 02:30/05:30/…/23:30），最坏 3 小时跟上；公开仓库 Actions 不计费。
+    - cron: '30 */3 * * *'
+
+permissions:
+  contents: write
+concurrency:
+  group: build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 解析上游版本
+        id: up
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force && '1' || '0' }}
+        run: bash scripts/ci/upstream.sh "${{ inputs.upstream }}"
+
+      - name: 算本次版本号
+        id: ver
+        if: steps.up.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          today=$(TZ=Asia/Shanghai date +%y.%m.%d)
+          used=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[].tag_name' 2>/dev/null || true)
+          # 取「已有最大序号 + 1」，不是「第一个空位」：删过旧 Release 后空位会重号
+          last=$(printf '%s\n' "$used" | sed -n "s|^v${today}_\([0-9]\{1,\}\)$|\1|p" | sort -n | tail -1)
+          n=$(( ${last:-0} + 1 ))
+          v="${today}_${n}"
+          echo "本次版本: v$v（versionCode $((10#${today//./} * 100 + n))）"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: 取运行体
+        if: steps.up.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/ci/fetch-runtime.sh "${{ steps.up.outputs.tag }}"
+
+      - name: 打包
+        if: steps.up.outputs.skip != '1'
+        env:
+          UPSTREAM_TAG: ${{ steps.up.outputs.tag }}
+        run: python3 build_module.py "${{ steps.ver.outputs.version }}"
+
+      - name: 发 Release
+        if: steps.up.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.ver.outputs.version }}
+          UP: ${{ steps.up.outputs.tag }}
+        run: |
+          set -euo pipefail
+          zip="publish/WorkBuddy2API-Magisk-v${V}.zip"
+          sha=$(sha256sum "$zip" | cut -d' ' -f1)
+          du=$(du -h "$zip" | cut -f1)
+          cat > notes.md <<EOF
+          模块版本 **$V**，打包的上游运行体 **$UP**（从官方 release 的 linux-arm64 包原样取出）。
+
+          - 大小 $du，sha256 \`$sha\`
+          - 安装：在管理器里刷入 zip（APatch / Magisk / KernelSU）；**首次安装要重启一次**，升级安装刷完即生效
+          - 刷完在管理器里点「执行」看访问密钥；面板在 \`http://127.0.0.1:7863/panel/\`
+
+          上游：[misakano7545/workbuddy2api-panel](https://github.com/misakano7545/workbuddy2api-panel)（MIT，见 THIRD-PARTY.md）
+          EOF
+          # 上游是个人维护的活跃分支、随时可能改接口：所有包一律 pre-release，
+          # 不占 Latest（Latest 永为空，按 Release 页时间倒序取第一行）。
+          gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --prerelease
+
+      - name: 记账（UPSTREAM）
+        if: steps.up.outputs.skip != '1'
+        env:
+          UP: ${{ steps.up.outputs.tag }}
+        run: |
+          set -euo pipefail
+          echo "$UP" > UPSTREAM
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add UPSTREAM
+          # 上游没变时（force 出包）这里没有 diff，直接跳过，别让 git commit 以 1 退出
+          if git diff --cached --quiet; then
+            echo "UPSTREAM 没变，跳过提交"
+            exit 0
+          fi
+          git commit -m "chore: 上游 → $UP"
+          git push
+
+      - name: 没有新版
+        if: steps.up.outputs.skip == '1'
+        run: echo "上游仍是 ${{ steps.up.outputs.tag }}，跳过。要强制出包请勾 force。"

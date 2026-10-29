@@ -1,0 +1,6 @@
+id=wb2a
+name=WorkBuddy2API
+version=26.10.29_1 (wb2a 2026.10.29.1418)
+versionCode=26102901
+author=huxc573
+description=在手机本地跑 WorkBuddy2API：把腾讯 WorkBuddy/CodeBuddy 账号变成 OpenAI 兼容网关，带 Web 管理面板。arm64，Go 静态二进制，无 chroot。点「执行」＝重启网关并报访问密钥，点「打开」＝进面板。
