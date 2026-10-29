@@ -33,12 +33,39 @@
 
 | 按钮 | 来源 | 行为 |
 |---|---|---|
-| **打开** | `webroot/index.html` | 读 `/data/adb/wb2a/port` 与 `apikey.txt`，显示地址+密钥（可复制）；另显示模块版本、模块目录与运行体版本戳是否一致、GitHub 上是否有新版，并有「查看 Releases」入口 |
+| **打开** | `webroot/index.html` | 读 `/data/adb/wb2a/port` 与 `apikey.txt`，显示地址+密钥（可复制）；另显示模块版本、运行体是否已同步，底部「查看 Releases / 更新记录」按钮直接用浏览器打开仓库的 releases 页 |
 | **执行** | `action.sh` | 重启网关进程，打印密钥，并推一条系统通知报结果 |
 | **卸载** | 管理器自带 | 走 `uninstall.sh`，只删自己那三个写死路径 |
 
 - 「打开」依赖管理器的模块 WebUI：APatch（≥10568）、KernelSU 及各分支原生支持；Magisk 上游没有 WebView，装 KsuWebUI 或 MMRL 才会出现。没有也不影响，`sh action.sh open` 用系统浏览器打开。
 - ⚠ 点「执行」成功后管理器会自己退回列表（APatch `ExecuteAPMActionScreen` 里的 `popBackStack()`，脚本控制不了）。结果看通知，或看模块说明行：`运行中 · IP:端口 · 23:25 启动 ｜ 执行=重启进程`。
+
+## 管理器里的「有更新」是怎么来的
+
+靠 `module.prop` 里的一行 `updateJson=`——这是 Magisk / KernelSU / APatch / MMRL 共用的约定：
+
+```properties
+updateJson=https://huxc573.github.io/workbuddy2api-panel-magisk/update.json
+```
+
+管理器会定期拉这个 JSON，把里面的 `versionCode` 和已装的比，比自己新就在模块列表上标「有更新」，
+点一下直接下载 `zipUrl` 并安装（不用手动去 Releases 找）：
+
+```json
+{
+  "version": "26.10.29_3",
+  "versionCode": 26102903,
+  "zipUrl": "https://github.com/huxc573/workbuddy2api-panel-magisk/releases/download/v26.10.29_3/WorkBuddy2API-Magisk-v26.10.29_3.zip",
+  "changelog": "https://huxc573.github.io/workbuddy2api-panel-magisk/CHANGELOG.md"
+}
+```
+
+`update.json` **不用手改**：每次发 Release，CI 从打好的包里读 `version`/`versionCode` 再写这个文件并提交，
+保证它和模块本体永远一致。
+
+> 地址用 **GitHub Pages**（仓库根目录 + `.nojekyll`）而不是 `raw.githubusercontent.com`——实测后者
+> 与 `cdn.jsdelivr.net` 在本机都是超时/被 RST，只有 `gh-proxy.com` 前缀能通；`github.io` 直连正常。
+> 换仓库名只改 CI 的 `WB2A_SELF_REPO`，不用回来改 `module.prop`。
 
 ## 常用命令
 

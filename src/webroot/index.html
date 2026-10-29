@@ -133,28 +133,8 @@
     chk.textContent = '· 运行体未同步（重启或点「执行」）';
   }
 
-  // GitHub API 是少数带 CORS 的公开接口；不通就提示用户点按钮自己看
-  var cur = mver.split(' ')[0];
-  if (REPO.indexOf('__') !== 0) {
-    var x = new XMLHttpRequest();
-    x.open('GET', 'https://api.github.com/repos/' + REPO + '/releases/latest', true);
-    x.timeout = 8000;
-    x.onload = function () {
-      if (x.status !== 200) { chk.textContent = '· 查不到更新（点下面自己看）'; return; }
-      try {
-        var tag = (JSON.parse(x.responseText) || {}).tag_name || '';
-        var latest = tag.replace(/^v/, '');
-        if (!latest) return;
-        if (!chk.textContent) {
-          chk.textContent = !cur ? ('· 最新 ' + tag)
-                          : (latest !== cur ? ('· 有新版 ' + tag) : '· 已是最新');
-        }
-      } catch (e) { /* 解析不了就当没查到，不打扰 */ }
-    };
-    x.onerror = x.ontimeout = function () { chk.textContent = '· 网络不通，点下面 Releases'; };
-    x.send();
-  }
-
+  // 有没有新版不用这里查：module.prop 里的 updateJson 让管理器自己比 versionCode，
+  // 比自己新就在模块列表上显示「有更新」并直接下载安装。这里只管本地状态。
   document.getElementById('rel').addEventListener('click', function () {
     if (sh('am start -a android.intent.action.VIEW -d ' + REL) === null) window.open(REL, '_blank');
   });

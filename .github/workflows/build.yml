@@ -94,22 +94,37 @@ jobs:
           # 包本身是完整可用的（运行体从上游官方 release 原样取出，只加壳）。
           gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --latest
 
-      - name: 记账（UPSTREAM）
+      - name: 写 update.json + 记账（UPSTREAM）
         if: steps.up.outputs.skip != '1'
         env:
           UP: ${{ steps.up.outputs.tag }}
+          V: ${{ steps.ver.outputs.version }}
         run: |
           set -euo pipefail
+          zip="publish/WorkBuddy2API-Magisk-v${V}.zip"
+          # version / versionCode 直接从打好的包里读：保证 update.json 与模块本体永远一致
+          ver=$(unzip -p "$zip" module.prop | sed -n 's/^version=//p' | cut -d' ' -f1)
+          vc=$(unzip -p "$zip" module.prop | sed -n 's/^versionCode=//p')
+          # changelog 走 GitHub Pages：raw.githubusercontent 在国内基本连不上
+          pages="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+          cat > update.json <<EOF
+          {
+            "version": "$ver",
+            "versionCode": $vc,
+            "zipUrl": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/v${V}/$(basename "$zip")",
+            "changelog": "$pages/CHANGELOG.md"
+          }
+          EOF
           echo "$UP" > UPSTREAM
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add UPSTREAM
-          # 上游没变时（force 出包）这里没有 diff，直接跳过，别让 git commit 以 1 退出
+          git add UPSTREAM update.json
+          # 上游没变时（force 出包）这一步可能没有 diff，跳过，别让 git commit 以 1 退出
           if git diff --cached --quiet; then
-            echo "UPSTREAM 没变，跳过提交"
+            echo "UPSTREAM / update.json 都没变，跳过提交"
             exit 0
           fi
-          git commit -m "chore: 上游 → $UP"
+          git commit -m "chore: 发布 v$V（上游 $UP）"
           git push
 
       - name: 没有新版

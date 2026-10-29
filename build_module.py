@@ -78,16 +78,24 @@ def main():
         sys.exit("缺少 src/webroot（管理器里的「打开」按钮入口）")
     shutil.copytree(wr, os.path.join(STAGE, "webroot"))
 
-    # 1.5) 把本仓库地址注入 WebUI（「查看 Releases」按钮与更新检查都靠它）。
+    # 1.5) 注入本仓库地址：WebUI 的「查看 Releases」+ module.prop 的 updateJson。
     #      CI 传 $WB2A_SELF_REPO=${{ github.repository }}；本地构建用下面的默认值。
-    #      用二进制替换，免得被换行/编码处理搅乱。
+    #      updateJson 走 GitHub Pages（raw.githubusercontent 在国内基本连不上，Pages 能连）。
+    #      用二进制替换，免得被换行/编码处理搅乱；漏替换会在打包前直接报错。
     self_repo = os.environ.get("WB2A_SELF_REPO", "huxc573/workbuddy2api-panel-magisk").strip()
-    hp = os.path.join(STAGE, "webroot", "index.html")
-    with open(hp, "rb") as f:
-        data = f.read()
-    if b"__WB2A_REPO__" in data:
-        with open(hp, "wb") as f:
-            f.write(data.replace(b"__WB2A_REPO__", self_repo.encode("utf-8")))
+    _owner, _, _name = self_repo.partition("/")
+    # 只给主机+路径，scheme 由模板里的 https:// 提供（早先这里带 scheme，结果拼出 https://https://）
+    pages = ("%s.github.io/%s" % (_owner, _name)) if _name else ""
+    subs = [(b"__WB2A_REPO__", self_repo.encode("utf-8")),
+            (b"__WB2A_PAGES__", pages.encode("utf-8"))]
+    for rel in ("webroot/index.html", "module.prop"):
+        p = os.path.join(STAGE, rel.replace("/", os.sep))
+        with open(p, "rb") as f:
+            data = f.read()
+        for tok, val in subs:
+            data = data.replace(tok, val)
+        with open(p, "wb") as f:
+            f.write(data)
 
     # 2) 运行体与静态资源
     for src, rel in FILES:
@@ -139,6 +147,25 @@ def main():
     zip_path = os.path.join(PUB, "WorkBuddy2API-Magisk-v%s.zip" % ver)
     if os.path.exists(zip_path):
         os.remove(zip_path)
+
+    # 占位符漏替换 = updateJson / WebUI 指向不存在的仓库，直接拦下
+    for root, _dirs, files in os.walk(STAGE):
+        for fn in files:
+            if fn.endswith((".html", ".prop")):
+                p = os.path.join(root, fn)
+                with open(p, "rb") as f:
+                    data = f.read()
+                for tok, _v in subs:
+                    if tok in data:
+                        sys.exit("占位符 %s 未替换: %s" % (tok.decode(), p))
+
+    # URL 拼接自检：漏了/多了一层 scheme 这种错肉眼很容易放过
+    with open(os.path.join(STAGE, "module.prop"), "r", encoding="utf-8") as f:
+        for ln in f:
+            if ln.startswith("updateJson="):
+                u = ln.strip().split("=", 1)[1]
+                if not u.startswith("https://") or u.count("https://") > 1 or "//" in u[8:]:
+                    sys.exit("updateJson 拼坏了: %s" % u)
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for root, dirs, files in os.walk(STAGE):
