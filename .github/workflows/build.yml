@@ -75,19 +75,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.ver.outputs.version }}
           UP: ${{ steps.up.outputs.tag }}
+          UP_REPO: misakano7545/workbuddy2api-panel
         run: |
           set -euo pipefail
           zip="publish/WorkBuddy2API-Magisk-v${V}.zip"
           sha=$(sha256sum "$zip" | cut -d' ' -f1)
           du=$(du -h "$zip" | cut -f1)
           cat > notes.md <<EOF
-          模块版本 **$V**，打包的上游运行体 **$UP**（从官方 release 的 linux-arm64 包原样取出）。
+          模块版本 **$V**，运行体取自上游 [${UP}](${GITHUB_SERVER_URL}/${UP_REPO}/releases/tag/${UP})（官方 linux-arm64 包，原样取出未改）。
 
           - 大小 $du，sha256 \`$sha\`
           - 安装：在管理器里刷入 zip（APatch / Magisk / KernelSU）；**首次安装要重启一次**，升级安装刷完即生效
           - 刷完在管理器里点「执行」看访问密钥；面板在 \`http://127.0.0.1:7863/panel/\`（安装时可改成 52017）
 
-          上游：[misakano7545/workbuddy2api-panel](https://github.com/misakano7545/workbuddy2api-panel)（MIT，见 THIRD-PARTY.md）
+          上游项目：[${UP_REPO}](${GITHUB_SERVER_URL}/${UP_REPO})（MIT，见 THIRD-PARTY.md）
           EOF
           # 发正式 Release（不加 --prerelease）：GitHub 会自动把最新一个标成 Latest，
           # 装了 Magisk/APatch 的更新器和 /releases/latest 这类接口都只认 Latest。
