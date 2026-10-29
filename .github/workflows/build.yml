@@ -81,7 +81,7 @@ jobs:
 
           - 大小 $du，sha256 \`$sha\`
           - 安装：在管理器里刷入 zip（APatch / Magisk / KernelSU）；**首次安装要重启一次**，升级安装刷完即生效
-          - 刷完在管理器里点「执行」看访问密钥；面板在 \`http://127.0.0.1:52017/panel/\`（端口在安装时可改，7863＝上游官方默认）
+          - 刷完在管理器里点「执行」看访问密钥；面板在 \`http://127.0.0.1:7863/panel/\`（安装时可改成 52017）
 
           上游：[misakano7545/workbuddy2api-panel](https://github.com/misakano7545/workbuddy2api-panel)（MIT，见 THIRD-PARTY.md）
           EOF

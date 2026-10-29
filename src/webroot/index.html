@@ -65,7 +65,7 @@
     } catch (e) { return null; }
   }
 
-  var PORT = 52017;
+  var PORT = 7863;
   var raw = sh('cat /data/adb/wb2a/port');
   var n = raw ? raw.replace(/[^0-9]/g, '').slice(0, 5) : '';
   if (n && +n >= 1024 && +n <= 65535) { PORT = +n; }

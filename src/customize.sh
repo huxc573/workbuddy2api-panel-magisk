@@ -126,7 +126,7 @@ RECONF=1
 AUTO_ON=""
 LISTEN_MODE=""
 if [ "$_installed" = "1" ]; then
-    _sp=${_cur_port:-52017}
+    _sp=${_cur_port:-7863}
     if wb2a_update_on; then _sa="开启"; else _sa="关闭"; fi
     ui_print " "
     ui_print "- 检测到已安装：端口 $_sp，监听 $_cur_listen，自动更新 $_sa"
@@ -142,12 +142,12 @@ fi
 
 # ---------- 配置值 ----------
 if [ "$RECONF" = "1" ]; then
-    # 端口：把当前值放第一项，音量上直接确认＝不改；新装第一项＝52017（上游官方 7863 作备选）
+    # 端口：当前值放第一项，音量上直接确认＝不改；新装第一项＝7863（上游官方默认），52017 作备选
     case "$_cur_port" in
-        52017) _o1=52017; _o2=7863 ;;
         7863) _o1=7863; _o2=52017 ;;
-        '' ) _o1=52017; _o2=7863 ;;
-        *) _o1=$_cur_port; _o2=52017 ;;      # 用户自定义过的端口，原样保留
+        52017) _o1=52017; _o2=7863 ;;
+        '' ) _o1=7863; _o2=52017 ;;
+        *) _o1=$_cur_port; _o2=7863 ;;      # 用户自定义过的端口，原样保留
     esac
     choose "网关端口" 1 "$_o1" "$_o2"
     PORT=$PICKED
@@ -201,7 +201,7 @@ if [ "$RECONF" = "1" ] && [ -n "$PORT" ]; then
     chmod 0600 "$DATA_DIR/port" 2>/dev/null
 fi
 [ -n "$PORT" ] || PORT=$(tr -dc '0-9' < "$DATA_DIR/port" 2>/dev/null | head -n1)
-[ -n "$PORT" ] || PORT=52017
+[ -n "$PORT" ] || PORT=7863
 
 if [ "$RECONF" = "1" ] && [ -n "$LISTEN_MODE" ]; then
     printf '%s\n' "$LISTEN_MODE" > "$DATA_DIR/listen"
@@ -333,7 +333,7 @@ else
     _st=0
     WB2A_DATA_DIR="$DATA_DIR" sh "$MODPATH/service.sh" start >/dev/null 2>&1 || _st=1
     _port=$(cat "$DATA_DIR/port" 2>/dev/null)
-    case "$_port" in '' | *[!0-9]*) _port=52017 ;; esac
+    case "$_port" in '' | *[!0-9]*) _port=7863 ;; esac
 
     if [ "$_st" = "0" ]; then
         ui_print "- 网关已启动，端口 $_port 可以访问（已是本次刷入的版本）"

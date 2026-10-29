@@ -32,9 +32,9 @@ wb2a_data_dir() {
 # ---------- 二进制 ----------
 WB2A_ID=wb2a
 WB2A_BIN_NAME=wb2api
-# 模块默认 52017（跟 NAS 上那套 wb2a 用同一个端口，口径统一好记）；备选＝上游官方 7863
-WB2A_DEFAULT_PORT=52017
-WB2A_ALT_PORT=7863
+# 默认＝上游官方 7863（跟上游文档/面板一致）；52017 是可选切换项（跟 NAS 上那套 wb2a 同端口）
+WB2A_DEFAULT_PORT=7863
+WB2A_ALT_PORT=52017
 
 # 运行体的权威位置＝数据目录下的 rt/。
 # 为什么不用模块目录：/data/adb/modules/wb2a 是 Magisk 的地盘，只有**下次启动**才会被
@@ -97,7 +97,7 @@ wb2a_listen_addr() {
     esac
 }
 
-# 端口优先级：$WORK/port（模块的权威值）> config.json 的 listen > 默认 52017
+# 端口优先级：$WORK/port（模块的权威值）> config.json 的 listen > 默认 7863
 wb2a_get_port() {
     _pf="$(wb2a_data_dir)/port"
     _q=""
