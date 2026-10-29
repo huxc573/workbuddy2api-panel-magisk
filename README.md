@@ -135,7 +135,7 @@ su -c "sh $M/updater.sh now"        # 立刻查一次
 | `runtime/wb2api` | 运行体，**不入库**，由 `scripts/ci/fetch-runtime.sh` 从上游 release 取出 |
 | `assets/` | 根证书（Mozilla bundle）、`zoneinfo/Asia/Shanghai` |
 | `build_module.py` | 组装 zip：映射目录、校验 ELF 必须 aarch64、统一 LF、脚本 0755 |
-| `.github/workflows/build.yml` | 每 3 小时查上游，有新 tag 才出包并发 Release（GitHub 自动标 **Latest**） |
+| `.github/workflows/build.yml` | 每小时查上游，有新 tag 才出包并发 Release（GitHub 自动标 **Latest**） |
 
 版本号是日期制 `YY.MM.DD_序号`，`versionCode = YYMMDD*100 + 序号`：
 
