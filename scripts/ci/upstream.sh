@@ -14,11 +14,15 @@ fi
 [ -n "$TAG" ] || { echo "::error::$REPO 拿不到 release"; exit 1; }
 
 CUR="$(cat UPSTREAM 2>/dev/null | tr -d ' \r\n' || true)"
+
+# 比版本时一律去掉前导 v：上游 tag 是 v2026.10.29.1418，人手写 UPSTREAM 时常写成
+# 2026.10.29.1418，两边直接比字符串会判成「有新版」→ 白出一遍包。
+_norm() { printf '%s' "${1#v}"; }
 echo "上游 tag: $TAG（仓库记录: ${CUR:-空}）"
 
 {
     echo "tag=$TAG"
-    if [ "$TAG" = "$CUR" ] && [ "${FORCE:-0}" != "1" ]; then
+    if [ "$(_norm "$TAG")" = "$(_norm "$CUR")" ] && [ "${FORCE:-0}" != "1" ]; then
         echo "skip=1"
     else
         echo "skip=0"
