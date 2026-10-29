@@ -22,12 +22,12 @@
 - `webroot/index.html`：显示地址 + 密钥（可复制），一键跳面板。
 - `updater.sh`：按上游 tag 挑最高版本 → 官方 `digest` 校 sha256 → 多源下载 → 验 aarch64 → 只换 `rt/bin` → 重启；
   睡到钟点才醒的定时器，关掉即不常驻。默认关闭。
-- CI 每 3 小时查上游，有新 tag 就出包并发 pre-release；`UPSTREAM` 记账。
+- CI 每 3 小时查上游，有新 tag 就出包并发正式 Release（自动标 Latest）；`UPSTREAM` 记账。
 
 **实测确认过的上游行为**（用官方 windows-amd64 包在本机跑出来的，不是猜的）
 
 - 首启自动生成 `config.json`：`listen` 默认 `127.0.0.1:7863`，`api_key` 随机 `sk-` + base64url；
-  启动横幅写明「来源 配置文件」。
+  启动横幅写明「来源 配置文件」。模块默认把端口改成 **52017**（与 NAS 上那套 wb2a 对齐），7863 作备选。
 - **面板在 `/panel/`，根路径 `/` 返回 404**（所以模块里所有入口都写 `/panel/`）。
 - `/panel/api/*` 无 Bearer 一律 401，带 `Authorization: Bearer <api_key>` 正常。
 - `/healthz` 在「没有可用账号」时按设计回 **503**（`{"healthy":0,...}`），因此探活看 `/panel/` 的 200。

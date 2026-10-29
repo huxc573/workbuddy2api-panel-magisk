@@ -15,8 +15,10 @@
 
 ## 安装
 
-1. 从 [Releases](../../releases) 下最上面那个 zip（**全部以 pre-release 发布**，页面没有 Latest，按时间倒序取第一行），在管理器里刷入；
-2. 按音量键答三题（音量下＝下一项，音量上＝确认）——端口（7863 ↔ 52019，首项是当前值）、
+1. 从 [Releases](https://github.com/huxc573/workbuddy2api-panel-magisk/releases/latest) 下最新的那个 zip
+   （版本号形如 `26.10.29_1`；只有上游发了新版才会出新包），在管理器里刷入；
+2. 按音量键答三题（音量下＝下一项，音量上＝确认）——端口（52017 ↔ 7863，首项是当前值；
+   52017 是默认，7863 是上游官方默认）、
    监听范围（局域网 `0.0.0.0` / 仅本机 `127.0.0.1`）、自动更新（开/关，首次默认关）；
    已装过的机器会**先多问一题**「是否重新设置」，音量上直接确认＝配置一个字都不动；
 3. 刷完会打印**访问密钥**（`sk-…`）。**首次安装要重启手机**：刷 zip 只解到 `modules_update/`，
@@ -133,7 +135,7 @@ su -c "sh $M/updater.sh now"        # 立刻查一次
 | `runtime/wb2api` | 运行体，**不入库**，由 `scripts/ci/fetch-runtime.sh` 从上游 release 取出 |
 | `assets/` | 根证书（Mozilla bundle）、`zoneinfo/Asia/Shanghai` |
 | `build_module.py` | 组装 zip：映射目录、校验 ELF 必须 aarch64、统一 LF、脚本 0755 |
-| `.github/workflows/build.yml` | 每 3 小时查上游，有新版自动出包并发 **pre-release**（不占 Latest） |
+| `.github/workflows/build.yml` | 每 3 小时查上游，有新 tag 才出包并发 Release（GitHub 自动标 **Latest**） |
 
 版本号是日期制 `YY.MM.DD_序号`，`versionCode = YYMMDD*100 + 序号`：
 

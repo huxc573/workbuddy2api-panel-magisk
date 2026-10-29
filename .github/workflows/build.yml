@@ -81,13 +81,14 @@ jobs:
 
           - 大小 $du，sha256 \`$sha\`
           - 安装：在管理器里刷入 zip（APatch / Magisk / KernelSU）；**首次安装要重启一次**，升级安装刷完即生效
-          - 刷完在管理器里点「执行」看访问密钥；面板在 \`http://127.0.0.1:7863/panel/\`
+          - 刷完在管理器里点「执行」看访问密钥；面板在 \`http://127.0.0.1:52017/panel/\`（端口在安装时可改，7863＝上游官方默认）
 
           上游：[misakano7545/workbuddy2api-panel](https://github.com/misakano7545/workbuddy2api-panel)（MIT，见 THIRD-PARTY.md）
           EOF
-          # 上游是个人维护的活跃分支、随时可能改接口：所有包一律 pre-release，
-          # 不占 Latest（Latest 永为空，按 Release 页时间倒序取第一行）。
-          gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --prerelease
+          # 发正式 Release（不加 --prerelease）：GitHub 会自动把最新一个标成 Latest，
+          # 装了 Magisk/APatch 的更新器和 /releases/latest 这类接口都只认 Latest。
+          # 包本身是完整可用的（运行体从上游官方 release 原样取出，只加壳）。
+          gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --latest
 
       - name: 记账（UPSTREAM）
         if: steps.up.outputs.skip != '1'
