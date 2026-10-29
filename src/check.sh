@@ -32,8 +32,10 @@ echo "== 二进制自检（-h，预期打印用法后退出，不 segfault）=="
 )
 
 echo "== 时区 / 证书 =="
-echo "  $(wb2a_tz_env | tr '\n' ' ')"
-echo "  $(wb2a_cert_env | tr '\n' ' ')"
+# 只看「子进程实际能拿到什么」：这几个变量曾经漏了 export —— 端口照通，
+# 但网关自己发 HTTPS 会报 x509: certificate signed by unknown authority。
+( eval "$(wb2a_cert_env)"; eval "$(wb2a_tz_env)"; \
+  env | grep -E '^(SSL_CERT_FILE|SSL_CERT_DIR|ZONEINFO|TZ)=' | sed 's/^/  /' )
 [ -f "$MODDIR/zoneinfo/Asia/Shanghai" ] && echo "  zoneinfo 文件 $(wc -c < "$MODDIR/zoneinfo/Asia/Shanghai" | tr -d ' ') B"
 [ -f "$MODDIR/etc/ca-certificates.crt" ] && echo "  根证书 $(grep -c 'BEGIN CERTIFICATE' "$MODDIR/etc/ca-certificates.crt" 2>/dev/null) 张"
 

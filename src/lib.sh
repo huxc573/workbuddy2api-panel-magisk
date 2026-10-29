@@ -278,16 +278,18 @@ wb2a_watchdog_pid() {
 # Go 的 crypto/x509 在 Linux 上只认几个固定路径（/etc/ssl/certs/…），Android 都没有
 # （系统的信任锚在 /system/etc/security/cacerts，Go 不读它）⇒ 必须显式指 SSL_CERT_FILE。
 # 模块自带一份 Mozilla 根证书；缺失时退回系统 cacerts 目录（Go 支持 SSL_CERT_DIR 读散装 PEM）。
+# ⚠ 必须带 export：这里是被 `eval "$(wb2a_cert_env)"` 调用的，只赋值不导出的话
+# 变量只活在当前 shell 里，exec 出去的子进程（网关本体）根本看不见 ——
+# 表现为面板「检查更新」报 x509: certificate signed by unknown authority。
 wb2a_cert_env() {
     if [ -f "$MODDIR/etc/ca-certificates.crt" ]; then
-        echo "SSL_CERT_FILE=$MODDIR/etc/ca-certificates.crt"
-        echo "SSL_CERT_DIR=$MODDIR/etc/certs"
+        echo "export SSL_CERT_FILE=$MODDIR/etc/ca-certificates.crt"
         return
     fi
     for _d in /system/etc/security/cacerts \
               /apex/com.android.conscrypt/cacerts; do
         if [ -d "$_d" ]; then
-            echo "SSL_CERT_DIR=$_d"
+            echo "export SSL_CERT_DIR=$_d"
             return
         fi
     done
@@ -297,12 +299,13 @@ wb2a_cert_env() {
 # Android 的 tzdata 是 /system/usr/share/zoneinfo/tzdata 这个打包格式，Go 不认。
 # 模块自带一份 Asia/Shanghai 并用 ZONEINFO 指过去；TZ 给名字，Go 优先查 $ZONEINFO。
 # 网关自己做日界判定用固定 +08:00（不依赖时区），这里影响的是日志/用量分桶的本地时间。
+# 同样必须 export（理由见 wb2a_cert_env）：不导出的话网关拿到的是 UTC。
 wb2a_tz_env() {
     if [ -f "$MODDIR/zoneinfo/Asia/Shanghai" ]; then
-        echo "ZONEINFO=$MODDIR/zoneinfo"
-        echo "TZ=Asia/Shanghai"
+        echo "export ZONEINFO=$MODDIR/zoneinfo"
+        echo "export TZ=Asia/Shanghai"
     else
-        echo "TZ=CST-8"
+        echo "export TZ=CST-8"
     fi
 }
 
