@@ -33,7 +33,7 @@
 
 | 按钮 | 来源 | 行为 |
 |---|---|---|
-| **打开** | `webroot/index.html` | 读 `/data/adb/wb2a/port` 与 `apikey.txt`，显示地址+密钥（可复制），再跳面板 |
+| **打开** | `webroot/index.html` | 读 `/data/adb/wb2a/port` 与 `apikey.txt`，显示地址+密钥（可复制）；另显示模块版本、模块目录与运行体版本戳是否一致、GitHub 上是否有新版，并有「查看 Releases」入口 |
 | **执行** | `action.sh` | 重启网关进程，打印密钥，并推一条系统通知报结果 |
 | **卸载** | 管理器自带 | 走 `uninstall.sh`，只删自己那三个写死路径 |
 

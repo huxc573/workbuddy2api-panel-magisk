@@ -66,6 +66,7 @@ jobs:
         if: steps.up.outputs.skip != '1'
         env:
           UPSTREAM_TAG: ${{ steps.up.outputs.tag }}
+          WB2A_SELF_REPO: ${{ github.repository }}
         run: python3 build_module.py "${{ steps.ver.outputs.version }}"
 
       - name: 发 Release

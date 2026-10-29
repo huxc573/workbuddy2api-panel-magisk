@@ -28,6 +28,7 @@
   button.b{background:var(--btn2);color:var(--fg)}
   .tip{color:var(--dim);font-size:12px;margin:14px 0 0;line-height:1.75}
   .warn{color:var(--warn)}
+  .dim{color:var(--dim);font-size:12px}
   .copied{color:var(--btn)}
 </style>
 </head>
@@ -40,11 +41,13 @@
     <div class="row"><span class="k">面板</span><span class="v"><code id="url">正在读取…</code></span></div>
     <div class="row"><span class="k">密钥</span><span class="v"><code id="key">—</code></span></div>
     <div class="row"><span class="k">状态</span><span class="v" id="state">—</span></div>
+    <div class="row"><span class="k">版本</span><span class="v"><code id="ver">—</code> <span class="dim" id="chk"></span></span></div>
   </div>
 
   <button class="b" id="copy" type="button">复制密钥</button>
   <a class="b" id="go" href="#">打开面板</a>
   <button class="b" id="br" type="button">用浏览器打开</button>
+  <button class="b" id="rel" type="button">查看 Releases / 更新记录</button>
 
   <p class="tip" id="tip">&nbsp;</p>
 </div>
@@ -113,10 +116,54 @@
     if (sh('am start -a android.intent.action.VIEW -d ' + url) === null) window.open(url, '_blank');
   });
 
+  // ---------- 版本 / 上游更新 ----------
+  // 仓库地址在打包时由 build_module.py 从 $WB2A_SELF_REPO 注入（CI 传 ${{ github.repository }}），
+  // 源码里是占位符，改名只要改 CI，不用回来改 HTML。
+  var REPO = '__WB2A_REPO__';
+  var REL = 'https://github.com/' + REPO + '/releases/latest';
+
+  var mp = sh("grep -m1 '^version=' /data/adb/modules/wb2a/module.prop") || '';
+  var mver = mp.replace(/^\s*version=/, '').replace(/\s+/g, ' ').trim();
+  var mcode = (sh("grep -m1 '^versionCode=' /data/adb/modules/wb2a/module.prop") || '').replace(/[^0-9]/g, '');
+  var rtcode = (sh('cat /data/adb/wb2a/rt/.rtver') || '').replace(/[^0-9]/g, '');
+  document.getElementById('ver').textContent = mver || '读取不到';
+
+  var chk = document.getElementById('chk');
+  if (mcode && rtcode && mcode !== rtcode) {
+    chk.textContent = '· 运行体未同步（重启或点「执行」）';
+  }
+
+  // GitHub API 是少数带 CORS 的公开接口；不通就提示用户点按钮自己看
+  var cur = mver.split(' ')[0];
+  if (REPO.indexOf('__') !== 0) {
+    var x = new XMLHttpRequest();
+    x.open('GET', 'https://api.github.com/repos/' + REPO + '/releases/latest', true);
+    x.timeout = 8000;
+    x.onload = function () {
+      if (x.status !== 200) { chk.textContent = '· 查不到更新（点下面自己看）'; return; }
+      try {
+        var tag = (JSON.parse(x.responseText) || {}).tag_name || '';
+        var latest = tag.replace(/^v/, '');
+        if (!latest) return;
+        if (!chk.textContent) {
+          chk.textContent = !cur ? ('· 最新 ' + tag)
+                          : (latest !== cur ? ('· 有新版 ' + tag) : '· 已是最新');
+        }
+      } catch (e) { /* 解析不了就当没查到，不打扰 */ }
+    };
+    x.onerror = x.ontimeout = function () { chk.textContent = '· 网络不通，点下面 Releases'; };
+    x.send();
+  }
+
+  document.getElementById('rel').addEventListener('click', function () {
+    if (sh('am start -a android.intent.action.VIEW -d ' + REL) === null) window.open(REL, '_blank');
+  });
+
   document.getElementById('tip').innerHTML =
     '面板首次打开要填上面的密钥（存在本机 localStorage）。<br>' +
     '同网段的电脑访问：<code>http://&lt;手机IP&gt;:' + PORT + '/panel/</code>，' +
-    '改端口 <code>sh action.sh config</code>。';
+    '改端口 <code>sh action.sh config</code>。<br>' +
+    '升级＝在管理器里刷 Releases 最新 zip（刷完即生效，不用重启）；自动更新 <code>sh action.sh auto on</code>。';
 })();
 </script>
 </body>

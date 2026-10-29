@@ -19,7 +19,8 @@
   `ZONEINFO`+`TZ`（Android 的 tzdata 是打包格式）；`TMPDIR` 指到数据目录。
 - `action.sh`：`key`（看/换密钥）、`open`、`config`、`reset`（清账号）、`auto`、`log`、`sync`；点「执行」重启并推通知。
 - `check.sh` 自检：文件 / ELF 架构 / 端口监听 / 进程与看门狗 / DNS / 证书张数 / 面板探活 / 最近日志。
-- `webroot/index.html`：显示地址 + 密钥（可复制），一键跳面板。
+- `webroot/index.html`：显示地址 + 密钥（可复制），一键跳面板；另显示模块版本、
+  模块目录与运行体版本戳是否一致，异步查 GitHub 最新 Release 提示有无新版，并有 Releases 入口。
 - `updater.sh`：按上游 tag 挑最高版本 → 官方 `digest` 校 sha256 → 多源下载 → 验 aarch64 → 只换 `rt/bin` → 重启；
   睡到钟点才醒的定时器，关掉即不常驻。默认关闭。
 - CI 每小时查上游，有新 tag 就出包并发正式 Release（自动标 Latest）；`UPSTREAM` 记账。

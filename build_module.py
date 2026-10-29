@@ -78,6 +78,17 @@ def main():
         sys.exit("缺少 src/webroot（管理器里的「打开」按钮入口）")
     shutil.copytree(wr, os.path.join(STAGE, "webroot"))
 
+    # 1.5) 把本仓库地址注入 WebUI（「查看 Releases」按钮与更新检查都靠它）。
+    #      CI 传 $WB2A_SELF_REPO=${{ github.repository }}；本地构建用下面的默认值。
+    #      用二进制替换，免得被换行/编码处理搅乱。
+    self_repo = os.environ.get("WB2A_SELF_REPO", "huxc573/workbuddy2api-panel-magisk").strip()
+    hp = os.path.join(STAGE, "webroot", "index.html")
+    with open(hp, "rb") as f:
+        data = f.read()
+    if b"__WB2A_REPO__" in data:
+        with open(hp, "wb") as f:
+            f.write(data.replace(b"__WB2A_REPO__", self_repo.encode("utf-8")))
+
     # 2) 运行体与静态资源
     for src, rel in FILES:
         if not os.path.isfile(src):
@@ -146,6 +157,7 @@ def main():
     print("产物: %s" % zip_path)
     print("大小: %.2f MB" % (size / 1048576.0))
     print("上游: %s" % (up or "(module.prop 原值)"))
+    print("仓库: %s" % self_repo)
     with zipfile.ZipFile(zip_path) as z:
         names = z.namelist()
         print("条目数: %d" % len(names))
