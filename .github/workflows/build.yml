@@ -90,10 +90,11 @@ jobs:
 
           上游项目：[${UP_REPO}](${GITHUB_SERVER_URL}/${UP_REPO})（MIT，见 THIRD-PARTY.md）
           EOF
-          # 发正式 Release（不加 --prerelease）：GitHub 会自动把最新一个标成 Latest，
-          # 装了 Magisk/APatch 的更新器和 /releases/latest 这类接口都只认 Latest。
-          # 包本身是完整可用的（运行体从上游官方 release 原样取出，只加壳）。
-          gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --latest
+          # 一律 --prerelease，与上游 misakano7545/workbuddy2api-panel 的发布口径保持一致
+          # （和 Agent2API-Magisk 同一套设计）。别改成 --latest：Latest 一旦被占，
+          # 就成了个需要维护的状态，跟上游一比就左右不是；这里不做二次语义。
+          # 管理器更新只认 update.json 里的 versionCode，不认 Latest，所以不影响更新提示。
+          gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --prerelease
 
       - name: 写 update.json + 记账（UPSTREAM）
         if: steps.up.outputs.skip != '1'

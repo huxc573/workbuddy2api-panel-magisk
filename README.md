@@ -15,8 +15,9 @@
 
 ## 安装
 
-1. 从 [Releases](https://github.com/huxc573/workbuddy2api-panel-magisk/releases/latest) 下最新的那个 zip
-   （版本号形如 `26.10.29_1`；只有上游发了新版才会出新包），在管理器里刷入；
+1. 从 [Releases](https://github.com/huxc573/workbuddy2api-panel-magisk/releases) 下**最新**的那个 zip
+   （版本号形如 `26.10.29_1`，按发布时间倒序排第一行；发布时一律打 pre-release，与上游口径一致，
+   所以页面上**没有 Latest 标记**；只有上游发了新版才会出新包），在管理器里刷入；
 2. 按音量键答三题（音量下＝下一项，音量上＝确认）——端口（7863 ↔ 52017，首项是当前值；
    7863 是上游官方默认，52017 为可切换项）、
    监听范围（局域网 `0.0.0.0` / 仅本机 `127.0.0.1`）、自动更新（开/关，首次默认关）；
@@ -139,7 +140,7 @@ su -c "sh $M/action.sh auto 03:30"
 su -c "sh $M/updater.sh now"        # 立刻查一次
 ```
 
-- 上游 tag 是时间戳制（`v2026.10.29.1418`），`/releases/latest` 能用，但模块按列表挑最高版本更稳（不依赖 latest 的语义）。
+- 管理器里的「有更新」只看 `update.json` 的 `versionCode`，**与 Latest 标记无关**（本仓库一律发 pre-release，和上游一致）。
 - 解压用 `unzip`（toybox / busybox 都带）；两者都没有的机器会明确报「无 unzip」而不是假装成功。
 - 定时器是「睡到点才醒」的进程，不是轮询；关掉时它根本不启动。
 
@@ -162,7 +163,7 @@ su -c "sh $M/updater.sh now"        # 立刻查一次
 | `runtime/wb2api` | 运行体，**不入库**，由 `scripts/ci/fetch-runtime.sh` 从上游 release 取出 |
 | `assets/` | 根证书（Mozilla bundle）、`zoneinfo/Asia/Shanghai` |
 | `build_module.py` | 组装 zip：映射目录、校验 ELF 必须 aarch64、统一 LF、脚本 0755 |
-| `.github/workflows/build.yml` | 每小时查上游，有新 tag 才出包并发 Release（GitHub 自动标 **Latest**） |
+| `.github/workflows/build.yml` | 每小时查上游，有新 tag 才出包并发 Release（一律 pre-release，与上游口径一致） |
 
 版本号是日期制 `YY.MM.DD_序号`，`versionCode = YYMMDD*100 + 序号`：
 

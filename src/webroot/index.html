@@ -134,7 +134,9 @@
   // 源码里是占位符，改名只要改 CI，不用回来改 HTML。
   var REPO = '__WB2A_REPO__';
   var PAGES = 'https://__WB2A_PAGES__';
-  var REL = 'https://github.com/' + REPO + '/releases/latest';
+  // pre-release 与上游口径一致 ⇒ /releases/latest 可能是权威之外的东西，直接给列表：
+  // 页面按发布时间倒序，第一行就是最新包。
+  var REL = 'https://github.com/' + REPO + '/releases';
   // 与管理器读的是同一份 update.json：先试 Pages（国内直连通常通），
   // 再试 gh-proxy 镜像 raw，最后退回直连 raw（多半不通，留着兜底）。
   var UPD = [PAGES + '/update.json',

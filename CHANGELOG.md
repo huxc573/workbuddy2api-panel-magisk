@@ -25,7 +25,7 @@
   `update.json` 由 CI 每次发版重写，与包内 `module.prop` 同源。
 - `updater.sh`：按上游 tag 挑最高版本 → 官方 `digest` 校 sha256 → 多源下载 → 验 aarch64 → 只换 `rt/bin` → 重启；
   睡到钟点才醒的定时器，关掉即不常驻。默认关闭。
-- CI 每小时查上游，有新 tag 就出包并发正式 Release（自动标 Latest）；`UPSTREAM` 记账。
+- CI 每小时查上游，有新 tag 就出包并发 Release（一律 pre-release，与上游口径一致）；`UPSTREAM` 记账。
 
 **实测确认过的上游行为**（用官方 windows-amd64 包在本机跑出来的，不是猜的）
 
