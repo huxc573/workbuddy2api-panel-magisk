@@ -15,9 +15,9 @@
 
 ## 安装
 
-1. 从 [Releases](https://github.com/huxc573/workbuddy2api-panel-magisk/releases) 下**最新**的那个 zip
-   （版本号形如 `26.10.29_1`，按发布时间倒序排第一行；发布时一律打 pre-release，与上游口径一致，
-   所以页面上**没有 Latest 标记**；只有上游发了新版才会出新包），在管理器里刷入；
+1. 从 [Releases 最新版](https://github.com/huxc573/workbuddy2api-panel-magisk/releases/latest) 下 zip
+   （版本号形如 `26.10.31_2`，直接走 `/releases/latest` 就行，不用自己在列表里找第一行；
+   发布口径与上游一致，发的是正式 Release），在管理器里刷入；
 2. 按音量键答三题（音量下＝下一项，音量上＝确认）——端口（7863 ↔ 52017，首项是当前值；
    7863 是上游官方默认，52017 为可切换项）、
    监听范围（局域网 `0.0.0.0` / 仅本机 `127.0.0.1`）、自动更新（开/关，首次默认关）；
@@ -140,7 +140,7 @@ su -c "sh $M/action.sh auto 03:30"
 su -c "sh $M/updater.sh now"        # 立刻查一次
 ```
 
-- 管理器里的「有更新」只看 `update.json` 的 `versionCode`，**与 Latest 标记无关**（本仓库一律发 pre-release，和上游一致）。
+- 管理器里的「有更新」只看 `update.json` 的 `versionCode`，**与 Latest 标记无关**。本仓库发的是正式 Release（与上游一致），最新一个会被标 Latest，`/releases/latest` 指得准。
 - 解压用 `unzip`（toybox / busybox 都带）；两者都没有的机器会明确报「无 unzip」而不是假装成功。
 - 定时器是「睡到点才醒」的进程，不是轮询；关掉时它根本不启动。
 

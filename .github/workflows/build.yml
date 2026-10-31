@@ -90,11 +90,11 @@ jobs:
 
           上游项目：[${UP_REPO}](${GITHUB_SERVER_URL}/${UP_REPO})（MIT，见 THIRD-PARTY.md）
           EOF
-          # 一律 --prerelease，与上游 misakano7545/workbuddy2api-panel 的发布口径保持一致
-          # （和 Agent2API-Magisk 同一套设计）。别改成 --latest：Latest 一旦被占，
-          # 就成了个需要维护的状态，跟上游一比就左右不是；这里不做二次语义。
-          # 管理器更新只认 update.json 里的 versionCode，不认 Latest，所以不影响更新提示。
-          gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --prerelease
+          # Release 口径跟上游一致：上游 misakano7545/workbuddy2api-panel 发的是正式 Release，
+          # 这边就 --latest（GitHub 自动标最新一个为 Latest），/releases/latest 才指得准。
+          # 管理器更新只认 update.json 里的 versionCode，跟 Latest 无关 —— 但 README 里
+          # 「直接 /releases/latest」那句得靠这个成立，所以别退回 --prerelease。
+          gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --latest
 
       - name: 写 update.json + 记账（UPSTREAM）
         if: steps.up.outputs.skip != '1'
