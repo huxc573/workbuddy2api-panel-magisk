@@ -23,20 +23,29 @@ UP_REPO="${WB2A_UPSTREAM_REPO:-misakano7545/workbuddy2api-panel}"
 UPVER="${UP#v}"
 
 # ---------- 本模块这版 ----------
-# 取 "## <V>" 到下一个 "## " 之间的内容；版本号整词匹配，
-# 否则 26.10.31_1 会把 26.10.31_10 也一起吞进去。
-self_body=$(
-    awk -v want="$V" '
+# 取 "## <V>" 到下一个 "## " 之间的内容。
+# ⚠ 不能只按 $V 精确匹配：CHANGELOG.md 里的版本号是「动手那天」写的（如 26.11.05_1），
+#   而 CI 每次跑的 $V 是当场算的序号（26.11.05_2、_3…），两者对不上就会一个字都取不到。
+#   所以先按 $V 找，找不到就退回到「第一条 ## 段落」（＝最新那版）。
+_pick_self() {  # $1=要匹配的版本号；空 = 直接取第一条
+    awk -v want="$1" '
         /^## / {
             h = $0
             sub(/^##[ \t]+/, "", h)
             sub(/[ \t].*$/, "", h)
-            inblk = (h == want)
+            if (want == "") { inblk = (n == 0) }
+            else            { inblk = (h == want) }
+            n++
             if (inblk) next
         }
         inblk { print }
     ' "$SRC" 2>/dev/null || true
-)
+}
+
+self_body=$(_pick_self "$V")
+if [ -z "$(printf '%s' "$self_body" | tr -d '[:space:]')" ]; then
+    self_body=$(_pick_self "")
+fi
 self_body=$(printf '%s\n' "$self_body" | sed -e '/./,$!d' | sed -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba')
 
 # ---------- 上游这版 ----------
