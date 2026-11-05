@@ -125,11 +125,15 @@ jobs:
           # 去掉 New Contributors 与链接，只留条目）。上游那段拿不到就只出本模块的。
           bash scripts/ci/changelog-current.sh "$V" "$UP" CHANGELOG.md CHANGELOG-current.md
 
+          # zipUrl 走镜像前缀：国内直连 github.com/releases/download 基本拉不动
+          # （实测直连 curl 直接 000，管理器点了「更新」也下不下来）。要直连把 GH_PROXY 置空。
+          GH_PROXY="https://gh-proxy.com/"
+
           cat > update.json <<EOF
           {
             "version": "$ver",
             "versionCode": $vc,
-            "zipUrl": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/v${V}/$(basename "$zip")",
+            "zipUrl": "${GH_PROXY}${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/v${V}/$(basename "$zip")",
             "changelog": "$pages/CHANGELOG-current.md"
           }
           EOF
