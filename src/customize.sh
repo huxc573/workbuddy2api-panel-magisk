@@ -53,79 +53,27 @@ mkdir -p "$DATA_DIR" "$DATA_DIR/data" "$DATA_DIR/auths" "$DATA_DIR/tmp"
 set_perm_recursive "$DATA_DIR" 0 0 0700 0600
 
 # ---------- 刷入时选择：只能读音量键 ----------
-# 音量下 = 切下一项，音量上 = 确认默认项。不按也没关系：
-#   · 单个问题 5 秒无按键 ⇒ 自动采用当前项（＝默认项）
-#   · 一个问题都不按 ⇒ 5 秒后剩下所有问题全部按默认值走完，安装不再等
-# 计时靠 timeout 每秒掐一次 getevent；安卓没有秒表，所以能拿到秒数就按秒扣，
-# 拿不到（老 toybox）就一次算 1 秒，两种都不会卡住安装。
-SETTLE=${WB2A_SETTLE:-5}     # 无操作多少秒算「不选了」，测试可调小
-_LEFT=""                     # ""=不限  "0"=剩下的都别问直接按默认  其它=还在计时
-TMO="timeout 1"              # 超时命令整串（选项 + 时长），_probe_timer 定
-_KF="${TMPDIR:-/tmp}/.wb2a_key"   # getevent 输出的暂存文件（安卓与本地测试都能写）
-_WRET=""                     # 上一次 _key_once 的原始输出
-_KEY=""                      # 上一次按键：up / down / 空
+# Magisk / APatch / KernelSU 的安装界面没有输入框，也不把 stdin 交给 customize.sh：
+#   用 read 会永久阻塞（现象＝进度条卡住、提示也不显示）。
+# 业界做法（OpenList-Magisk / box_for_magisk 等）是读 /dev/input 的音量键：
+#   音量下 = 切下一项，音量上 = 确认。
+# ⚠ 必须带倒计时：无超时的死等会让不按键的人永远卡在进度条上。
+WB2A_SETTLE=${WB2A_SETTLE:-5}   # 无操作多少秒算「采用当前项」
+_LEFT=""                        # ""=每题都计时  "0"=剩下的问题全按默认、不再问
 
-# 本轮等了多久（秒整数）。时钟优先取 timeout 的调度耗时（EPOCHREALTIME，bash 5 才有，
-# 安卓上一般没有）；没有就数一下：getevent 自己阻塞满 timeout 杀掉 = 整整 tmo 秒，
-# 按键时它提前退出，就用起止时间差估。
-_secs() { printf '%s' "${1%.*}" | tr -dc '0-9'; }
-_now() { printf '%s' "${EPOCHREALTIME/./}"; }   # 微秒；没有 bash 5 时为空
-
-# 选好计时方式，只探一次：
-#  · timeout -v：超时那轮会打 "timeout: sending signal ..."，这个秒数最靠谱。
-#  · getevent -t：事件行自带时间戳（只在「一直听」时才有，带 -q 就没有）。
-#  · 都没有（老 toybox / getevent 不带 -t）：按次记，一次算 1 秒。
-_CLK=0                       # 1＝getevent 事件行自带时间戳
-_VCLK=0                      # 1＝timeout -v 会打秒数
-_probe_timer() {
-    if { timeout -v 1 true; } 2>&1 | grep -q 'signal: '; then
-        _VCLK=1
-        TMO="timeout -k 1 -v 1"
-    elif getevent -t >/dev/null 2>&1 && [ -n "$(getevent -qc 1 2>/dev/null)" ]; then
-        _CLK=1
-        TMO="timeout -k 1 1"
-    else
-        TMO="timeout 1"
-    fi
-}
-
+# 最多阻塞 1 秒；只认 KEY_VOLUMEUP / KEY_VOLUMEDOWN 的按下事件。
+# `-qlc 1`：-q 静默（不打设备头）、-l 一直听、-c 1 读满 1 个事件就退出。
+# 有它就不必用 -t 取时间戳算秒数 —— 这一轮不管是「读到按键」还是「满 1 秒没动静」，
+# 都恰好耗时约 1 秒，外层直接按 1 秒扣倒计时，简单且不会漂。
+# 外面套 { } 和 2>/dev/null 是必须的：timeout 杀掉 getevent 时 shell 会往自己的
+# stderr 打一行 "Terminated"，只重定向 getevent 的 stderr 盖不住它。
 _key_once() {
-    # 最多阻塞 1 秒；只认 KEY_VOLUMEUP / KEY_VOLUMEDOWN 的按下事件。
-    # 外面套 { } 是必须的：timeout 杀掉 getevent 时 shell 会往自己的 stderr 打
-    # 一行 "Terminated"，光重定向 getevent 的 stderr 盖不住它。
-    # 故意不带 -q：「一直听」时 getevent 才会给音量键打时间戳，带了 -q 一条都不出。
-    #
-    # ⚠ 调用处必须写 `_key_once`，不能写 `_k=$(_key_once)`：后者在 subshell 里跑，
-    #   函数里对 _KEY / _WRET 的赋值会随 subshell 一起丢掉，调用方永远读到空值。
-    _KEY=""
-    _WRET=""
-    # TMO 是「选项串 + 时长」的整串，必须按空格拆开再用 "$@" 展开：
-    # 直接写 $TMO 1 ... 时，末尾那个时长会被拼到 -v 后面，timeout 报 invalid option。
-    set -- $TMO
-    { "$@" getevent -t; } > "$_KF" 2>&1
-    _WRET=$(cat "$_KF" 2>/dev/null)
-    rm -f "$_KF" 2>/dev/null
-    set --
-    case "$_WRET" in
-        *KEY_VOLUMEUP*DOWN*) _KEY=up ;;
+    _ke=$( { timeout 1 getevent -qlc 1; } 2>/dev/null )
+    case "$_ke" in
+        *KEY_VOLUMEUP*DOWN*)   _KEY=up ;;
         *KEY_VOLUMEDOWN*DOWN*) _KEY=down ;;
+        *)                     _KEY="" ;;
     esac
-}
-
-# 上一轮等了大约几秒，写到 _D（整数）；拿不到时钟给 0，由调用方按次记作 1 秒
-_took() {
-    _D=0
-    _t=$(printf '%s' "$_WRET" | sed -n 's/.*\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -n1)
-    if [ -n "$_t" ]; then
-        _D=$(_secs "$_t"); [ "$_D" -ge 1 ] 2>/dev/null || _D=1
-        return
-    fi
-    if [ -n "$_T0" ] && [ -n "$_T1" ]; then
-        _us=$((_T1 - _T0)); _D=$((_us / 1000000))
-        return
-    fi
-    # 没钟但确实是「没人按键」那一轮：getevent 被 timeout 掐死 = 满 1 秒
-    [ -z "$1" ] && _D=1
 }
 
 _nth() {
@@ -157,37 +105,28 @@ choose() {
     fi
 
     ui_print " "
-    ui_print "- $_ct: 音量下=切换  音量上=确认（${SETTLE}s 无操作按默认）"
+    ui_print "- $_ct: 音量下=切换  音量上=确认  不按=${WB2A_SETTLE}秒后自动采用"
     ui_print "  → $(_nth "$_cur" "$@")"
 
-    _left=$SETTLE
-    _touched=""                     # 本问题里用户有没有动过手
+    _left=$WB2A_SETTLE
+    _touched=""        # 本问题里有没有按过键
     _confirmed=""
-    while [ -z "$_confirmed" ]; do
-        _key_once                  # 结果放全局 _KEY / _WRET（不能放进 $()，会丢）
-        _k=$_KEY                   # 先存一份：_took 会改 _D，别让后面的判断读错
-        _took "$_k"                # 本轮耗时 → _D（拿不到钟就是 0）
-
-        if [ -n "$_k" ]; then
+    while [ "$_left" -gt 0 ]; do
+        _key_once      # 全局回传 _KEY；不能写 $(_key_once)，subshell 会把赋值丢掉
+        if [ "$_KEY" = "down" ]; then
             _touched=1
-            if [ "$_k" = "down" ]; then
-                _cur=$((_cur % _cn + 1))
-                ui_print "  → $(_nth "$_cur" "$@")"
-                sleep 0.25
-                continue           # 切换不算消耗犹豫时间
-            fi
-            _confirmed=1           # 音量上＝确认
+            _cur=$((_cur % _cn + 1))
+            _left=$WB2A_SETTLE      # 切换动作重置倒计时（还在挑，不算犹豫）
+            ui_print "  → $(_nth "$_cur" "$@")  (${_left}s)"
+            continue
+        fi
+        if [ "$_KEY" = "up" ]; then
+            _touched=1; _confirmed=1
             break
         fi
-
-        # 没人按键：按本轮耗时扣倒计时（没钟就按一次 1 秒）
-        _d=${_D:-0}
-        [ "$_d" -ge 1 ] 2>/dev/null || _d=1
-        _left=$((_left - _d))
-        if [ "$_left" -le 0 ]; then
-            _LEFT=1                 # 超时了：本问题记「有人管过」，后面的仍会逐个问
-            break
-        fi
+        _left=$((_left - 1))
+        [ "$_left" -gt 0 ] && ui_print "  …${_left}s"
+        # _key_once 已阻塞约 1 秒，这里不再补 sleep，免得把倒计时拉成 2 倍
     done
 
     CHOICE=$_cur
@@ -198,8 +137,7 @@ choose() {
         ui_print "- $_ct: $PICKED（超时未确认）"
     else
         ui_print "- $_ct: $PICKED（超时，按默认）"
-        # 一次都没碰过 ⇒ 没人守着装，后面的问题不再等
-        [ -n "$_LEFT" ] || _LEFT=0
+        _LEFT=0        # 一次都没碰过 ⇒ 没人守着装，后面的问题不再等
     fi
     # 确认后停一下：音量上键松得慢的话，残留事件会把下一个问题也秒确认掉
     sleep 0.4 2>/dev/null || sleep 1
@@ -209,9 +147,6 @@ choose() {
 MODDIR="$MODPATH"
 . "$MODDIR/lib.sh" 2>/dev/null
 WORK="$DATA_DIR"
-
-# 音量键计时（只探一次；探不到就走 1 秒粒度，功能不受影响）
-command -v getevent >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1 && _probe_timer
 
 _cur_port=""
 [ -s "$DATA_DIR/port" ] && _cur_port=$(tr -dc '0-9' < "$DATA_DIR/port" 2>/dev/null | head -n1)
