@@ -100,6 +100,8 @@ jobs:
           UP: ${{ steps.up.outputs.tag }}
           V: ${{ steps.ver.outputs.version }}
           UP_REPO: misakano7545/workbuddy2api-panel
+          # 读上游 release notes 用来写「上游这版改了什么」，缺了不致命（只少那一段）
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           zip="publish/WorkBuddy2API-Magisk-v${V}.zip"
@@ -110,8 +112,8 @@ jobs:
 
           # changelog 交给「只含本版」的单文件：模块管理器会把 changelog 指向的文件
           # 原样展现在更新弹窗里，指向整份 CHANGELOG.md 的话用户会看到历史版本和开发笔记。
-          # 每次发版重写 CHANGELOG-current.md，内容＝该版本在 CHANGELOG.md 里的那一段；
-          # 该版本还没补条目就退回到「运行体升级到上游 X」一句话，绝不把整份文件塞进去。
+          # 里面写两段：本模块这版改了什么 + 上游这一版改了什么（读上游 release notes，
+          # 去掉 New Contributors 与链接，只留条目）。上游那段拿不到就只出本模块的。
           bash scripts/ci/changelog-current.sh "$V" "$UP" CHANGELOG.md CHANGELOG-current.md
 
           cat > update.json <<EOF

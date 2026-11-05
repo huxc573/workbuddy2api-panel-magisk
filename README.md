@@ -22,6 +22,8 @@
    7863 是上游官方默认，52017 为可切换项）、
    监听范围（局域网 `0.0.0.0` / 仅本机 `127.0.0.1`）、自动更新（开/关，首次默认关）；
    已装过的机器会**先多问一题**「是否重新设置」，音量上直接确认＝配置一个字都不动；
+   **不想按键也行**：每题 5 秒不操作就按默认项走；一个问题都没碰过的话，
+   第一个超时后剩下的直接全取默认，安装不会卡住等按键；
 3. 刷完会打印**访问密钥**（`sk-…`）。**首次安装要重启手机**：刷 zip 只解到 `modules_update/`，
    模块目录要重启才整体替换，安装器会提示「首次安装，重启设备后自动运行」；
    升级安装不用重启——`customize.sh` 会把 `bin/` 同步到 `/data/adb/wb2a/rt/`，再用新脚本停旧起新；
@@ -66,8 +68,10 @@ updateJson=https://huxc573.github.io/workbuddy2api-panel-magisk/update.json
 
 > `changelog` 指向的是 **`CHANGELOG-current.md`**，不是 `CHANGELOG.md`。管理器会把 `changelog`
 > 指向的文件**原样**展现在更新弹窗里——指整份 CHANGELOG 的话，用户点更新看到的就是一堆历史版本。
-> 所以 CI 每次发版用 `scripts/ci/changelog-current.sh` 从 `CHANGELOG.md` 里切出当前这一版，
-> 单独写一个文件给管理器读。
+> 所以 CI 每次发版用 `scripts/ci/changelog-current.sh` 生成这个文件，内容两段：
+> 本模块这版改了什么（`CHANGELOG.md` 里该版本的那一段）+ **上游这一版改了什么**
+> （读上游 release notes 的 `What's Changed` 条目，去掉 New Contributors 和链接）；
+> 上游那段读不到就只出本模块那段。
 
 > 地址用 **GitHub Pages**（仓库根目录 + `.nojekyll`）而不是 `raw.githubusercontent.com`——实测后者
 > 与 `cdn.jsdelivr.net` 在本机都是超时/被 RST，只有 `gh-proxy.com` 前缀能通；`github.io` 直连正常。
