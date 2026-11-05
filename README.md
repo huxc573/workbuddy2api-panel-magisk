@@ -54,15 +54,20 @@ updateJson=https://huxc573.github.io/workbuddy2api-panel-magisk/update.json
 
 ```json
 {
-  "version": "26.10.29_3",
-  "versionCode": 26102903,
-  "zipUrl": "https://github.com/huxc573/workbuddy2api-panel-magisk/releases/download/v26.10.29_3/WorkBuddy2API-Magisk-v26.10.29_3.zip",
-  "changelog": "https://huxc573.github.io/workbuddy2api-panel-magisk/CHANGELOG.md"
+  "version": "26.11.04_1",
+  "versionCode": 26110401,
+  "zipUrl": "https://github.com/huxc573/workbuddy2api-panel-magisk/releases/download/v26.11.04_1/WorkBuddy2API-Magisk-v26.11.04_1.zip",
+  "changelog": "https://huxc573.github.io/workbuddy2api-panel-magisk/CHANGELOG-current.md"
 }
 ```
 
 `update.json` **不用手改**：每次发 Release，CI 从打好的包里读 `version`/`versionCode` 再写这个文件并提交，
 保证它和模块本体永远一致。
+
+> `changelog` 指向的是 **`CHANGELOG-current.md`**，不是 `CHANGELOG.md`。管理器会把 `changelog`
+> 指向的文件**原样**展现在更新弹窗里——指整份 CHANGELOG 的话，用户点更新看到的就是一堆历史版本。
+> 所以 CI 每次发版用 `scripts/ci/changelog-current.sh` 从 `CHANGELOG.md` 里切出当前这一版，
+> 单独写一个文件给管理器读。
 
 > 地址用 **GitHub Pages**（仓库根目录 + `.nojekyll`）而不是 `raw.githubusercontent.com`——实测后者
 > 与 `cdn.jsdelivr.net` 在本机都是超时/被 RST，只有 `gh-proxy.com` 前缀能通；`github.io` 直连正常。

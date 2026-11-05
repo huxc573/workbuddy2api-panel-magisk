@@ -90,40 +90,45 @@ jobs:
 
           上游项目：[${UP_REPO}](${GITHUB_SERVER_URL}/${UP_REPO})（MIT，见 THIRD-PARTY.md）
           EOF
-          # Release 口径跟上游一致：上游 misakano7545/workbuddy2api-panel 发的是正式 Release，
-          # 这边就 --latest（GitHub 自动标最新一个为 Latest），/releases/latest 才指得准。
-          # 管理器更新只认 update.json 里的 versionCode，跟 Latest 无关 —— 但 README 里
-          # 「直接 /releases/latest」那句得靠这个成立，所以别退回 --prerelease。
-          gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --latest
+          # Release 口径跟上游一致（上游 misakano7545/workbuddy2api-panel 发的是正式 Release）。
+          # 管理器判断「有更新」只认 update.json 的 versionCode，跟 Latest 无关。
+          gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --prerelease
 
       - name: 写 update.json + 记账（UPSTREAM）
         if: steps.up.outputs.skip != '1'
         env:
           UP: ${{ steps.up.outputs.tag }}
           V: ${{ steps.ver.outputs.version }}
+          UP_REPO: misakano7545/workbuddy2api-panel
         run: |
           set -euo pipefail
           zip="publish/WorkBuddy2API-Magisk-v${V}.zip"
           # version / versionCode 直接从打好的包里读：保证 update.json 与模块本体永远一致
           ver=$(unzip -p "$zip" module.prop | sed -n 's/^version=//p' | cut -d' ' -f1)
           vc=$(unzip -p "$zip" module.prop | sed -n 's/^versionCode=//p')
-          # changelog 走 GitHub Pages：raw.githubusercontent 在国内基本连不上
           pages="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+
+          # changelog 交给「只含本版」的单文件：模块管理器会把 changelog 指向的文件
+          # 原样展现在更新弹窗里，指向整份 CHANGELOG.md 的话用户会看到历史版本和开发笔记。
+          # 每次发版重写 CHANGELOG-current.md，内容＝该版本在 CHANGELOG.md 里的那一段；
+          # 该版本还没补条目就退回到「运行体升级到上游 X」一句话，绝不把整份文件塞进去。
+          bash scripts/ci/changelog-current.sh "$V" "$UP" CHANGELOG.md CHANGELOG-current.md
+
           cat > update.json <<EOF
           {
             "version": "$ver",
             "versionCode": $vc,
             "zipUrl": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/v${V}/$(basename "$zip")",
-            "changelog": "$pages/CHANGELOG.md"
+            "changelog": "$pages/CHANGELOG-current.md"
           }
           EOF
           echo "$UP" > UPSTREAM
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add UPSTREAM update.json
+          git add UPSTREAM update.json CHANGELOG-current.md
           # 上游没变时（force 出包）这一步可能没有 diff，跳过，别让 git commit 以 1 退出
           if git diff --cached --quiet; then
-            echo "UPSTREAM / update.json 都没变，跳过提交"
+            echo "UPSTREAM / update.json / CHANGELOG-current.md 都没变，跳过提交"
             exit 0
           fi
           git commit -m "chore: 发布 v$V（上游 $UP）"
