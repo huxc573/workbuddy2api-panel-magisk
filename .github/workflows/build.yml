@@ -75,6 +75,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.ver.outputs.version }}
           UP: ${{ steps.up.outputs.tag }}
+          PRE: ${{ steps.up.outputs.prerelease }}
           UP_REPO: misakano7545/workbuddy2api-panel
         run: |
           set -euo pipefail
@@ -90,9 +91,17 @@ jobs:
 
           上游项目：[${UP_REPO}](${GITHUB_SERVER_URL}/${UP_REPO})（MIT，见 THIRD-PARTY.md）
           EOF
-          # Release 口径跟上游一致（上游 misakano7545/workbuddy2api-panel 发的是正式 Release）。
-          # 管理器判断「有更新」只认 update.json 的 versionCode，跟 Latest 无关。
-          gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --prerelease
+          # 预发 / 正式跟随上游那个 release：上游是预览版就标 Pre-release，上游转正我们也转正。
+          # ⚠ 必须是正式 Release：GitHub 的「Latest」只给非预发的 release，
+          #   全程 --prerelease 的话 /releases/latest 会一直指着几个月前的老版本。
+          # 查不到上游标记时 upstream.sh 兜底给 prerelease=1，宁可不转正。
+          if [ "${PRE:-1}" = "0" ]; then
+              echo "上游已是正式版 → 本包按正式版发"
+              gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --latest
+          else
+              echo "上游是预览版 → 本包按 Pre-release 发"
+              gh release create "v$V" "$zip" --title "$V" --notes-file notes.md --prerelease
+          fi
 
       - name: 写 update.json + 记账（UPSTREAM）
         if: steps.up.outputs.skip != '1'
