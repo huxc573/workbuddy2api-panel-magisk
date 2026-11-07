@@ -90,18 +90,26 @@ if [ -n "$UP" ] && command -v gh >/dev/null 2>&1; then
     fi
 fi
 
+# 本包自身的版本号与发布时间（UTC+8，具体到分钟）—— 弹窗第一行就要能看清装的是哪一版，
+# 否则只写「上游 xxx」的话，两个本包版本用的是同一个运行体时根本分不出新旧。
+BUILT=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M')
+
 {
+    printf '**本模块 %s**　构建于 %s\n' "$V" "$BUILT"
+
     if [ -n "$self_body" ]; then
+        echo
         printf '%s\n' "$self_body"
     fi
 
     if [ -n "$up_body" ]; then
-        [ -n "$self_body" ] && echo
+        echo
         printf '**上游 %s 的改动**\n\n' "${UPVER:-新版本}"
         printf '%s\n' "$up_body"
     elif [ -z "$self_body" ]; then
-        # 两段都空（CHANGELOG 还没补条目、也读不到上游 notes）
-        printf -- '- 运行体升级到上游 `%s`。\n' "${UPVER:-新版本}"
+        # 本模块这版没有可展示的条目、也读不到上游 notes
+        echo
+        printf -- '- 本版仅更新运行体到上游 `%s`，无其它改动。\n' "${UPVER:-新版本}"
     fi
 } > "$OUT"
 

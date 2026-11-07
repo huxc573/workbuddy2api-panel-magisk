@@ -83,7 +83,8 @@ jobs:
           sha=$(sha256sum "$zip" | cut -d' ' -f1)
           du=$(du -h "$zip" | cut -f1)
           cat > notes.md <<EOF
-          模块版本 **$V**，运行体取自上游 [${UP}](${GITHUB_SERVER_URL}/${UP_REPO}/releases/tag/${UP})（官方 linux-arm64 包，原样取出未改）。
+          # $V
+          构建于 $(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M')（UTC+8），运行体取自上游 [${UP}](${GITHUB_SERVER_URL}/${UP_REPO}/releases/tag/${UP})（官方 linux-arm64 包，原样取出未改）。
 
           - 大小 $du，sha256 \`$sha\`
           - 安装：在管理器里刷入 zip（APatch / Magisk / KernelSU）；**首次安装要重启一次**，升级安装刷完即生效
