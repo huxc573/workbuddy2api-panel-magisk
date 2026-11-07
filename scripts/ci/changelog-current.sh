@@ -9,9 +9,9 @@
 #   2. 上游这一版改了什么（上游 release notes 里的 "## What's Changed" 那一串）
 # 两段都可能为空，那就只出另一段；都空就退回到一句话，绝不回落成整份文件。
 #
-# 用法: scripts/ci/changelog-current.sh <版本号> <上游 tag> [源文件] [输出文件]
-#   scripts/ci/changelog-current.sh 26.11.04_1 v2026.11.4.1120
-#   → 写 CHANGELOG-current.md
+# 用法: scripts/ci/changelog-current.sh <版本号> <上游 tag> [源文件] [输出文件] [已发布条目账本]
+#   scripts/ci/changelog-current.sh 26.11.07_2 v2026.11.5.2306
+#   → 写 CHANGELOG-current.md，并把本次展示过的条目追加进 .changelog-seen
 # 环境: GH_TOKEN（读上游 release notes 需要；没有就跳过上游那段）
 set -euo pipefail
 
@@ -19,17 +19,49 @@ V="${1:?需要模块版本号，如 26.11.04_1}"
 UP="${2:-}"
 SRC="${3:-CHANGELOG.md}"
 OUT="${4:-CHANGELOG-current.md}"
+SEEN="${5:-.changelog-seen}"
 UP_REPO="${WB2A_UPSTREAM_REPO:-misakano7545/workbuddy2api-panel}"
 UPVER="${UP#v}"
 
 # ---------- 本模块这版 ----------
 # 取 "## <V>" 到下一个 "## " 之间的内容。
 # ⚠ 不能只按 $V 精确匹配：CHANGELOG.md 里的版本号是「动手那天」写的（如 26.11.05_1），
-#   而 CI 每次跑的 $V 是当场算的序号（26.11.05_2、_3…），两者对不上就会一个字都取不到。
-#   所以先按 $V 找；找不到再看这次提交有没有在 CHANGELOG.md 里新开一节 ——
-#   新开了才把最新那节当「本版改动」，没开就视为本版无模块改动（只出上游那段）。
-#   ⚠ 早期版本是无条件回退到「最新那版」，结果每发一个纯升运行体的包，
-#     弹窗里都重复贴同一条 05 日的旧文案，看着像版本发错了。
+#   而 CI 每次跑的 $V 是当场算的序号（26.11.07_2、_3…），两者对不上。
+#   所以先按 $V 找；找不到就取「第一条 ## 段落」，再剔掉 `.changelog-seen` 里
+#   已经发布过的条目 —— 剩下的才是本版真正的新改动。全被剔掉 ⇒ 本版无模块改动。
+#   ⚠ 早期是「无条件取最新一段」，于是每发一个纯升运行体的包，弹窗里都重复贴
+#     同一条旧文案（26.11.05_1 / 26.11.07_1 都被反复贴过）。
+#   ⚠ 也别用 git 前后对比当判据：CI 自己提交 CHANGELOG-current.md，
+#     HEAD 永远比手写 CHANGELOG.md 新，判据必然误判。
+
+# 条目归一化：去掉列表符号/粗体/结尾标点，只留可比较的正文
+_norm() {
+    printf '%s\n' "$1" | sed -e 's/^[[:space:]]*[-*][[:space:]]*//' \
+                            -e 's/\*\*//g' -e 's/[[:space:]]*$//' \
+                            -e 's/[。.]$//'
+}
+
+# 已发布过的条目（每行一条）
+_seen_has() {
+    [ -f "$SEEN" ] || return 1
+    _k=$(_norm "$1")
+    [ -n "$_k" ] || return 1
+    grep -Fxq -- "$_k" "$SEEN"
+}
+
+# 把本模块段里没发布过的条目挑出来（保留缩进的续行，交给调用方处理）
+_fresh() {
+    while IFS= read -r _l; do
+        case "$_l" in
+            ""|" "*) continue ;;      # 空行、缩进续行
+        esac
+        if _seen_has "$_l"; then continue; fi
+        printf '%s\n' "$_l"
+    done <<EOF2
+$1
+EOF2
+}
+
 _pick_self() {  # $1=要匹配的版本号；空 = 直接取第一条
     awk -v want="$1" '
         /^## / {
@@ -45,24 +77,13 @@ _pick_self() {  # $1=要匹配的版本号；空 = 直接取第一条
     ' "$SRC" 2>/dev/null || true
 }
 
-# HEAD 这次提交是否给 CHANGELOG.md **新增了段落**（改 CI / 改测试不该贴旧文案）
-_changelog_added() {
-    command -v git >/dev/null 2>&1 || return 1
-    git rev-parse HEAD >/dev/null 2>&1 || return 1
-    git rev-parse HEAD~1 >/dev/null 2>&1 || return 0    # 首个提交，当作有新增
-    _old=$(git show "HEAD~1:$SRC" 2>/dev/null | grep -c '^## ' || true)
-    _new=$(grep -c '^## ' "$SRC" 2>/dev/null || true)
-    [ "${_new:-0}" -gt "${_old:-0}" ]
-}
-
 self_body=$(_pick_self "$V")
 if [ -z "$(printf '%s' "$self_body" | tr -d '[:space:]')" ]; then
-    if _changelog_added; then
-        self_body=$(_pick_self "")
-    else
-        self_body=""
-    fi
+    self_body=$(_pick_self "")
 fi
+# 剔掉已经发布过的条目：一段 CHANGELOG 只在它自己那一版出现一次，
+# 后续任何版本（纯升运行体、改 CI、force 重出包）都不再重复贴。
+self_body=$(_fresh "$self_body")
 self_body=$(printf '%s\n' "$self_body" | sed -e '/./,$!d' | sed -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba')
 
 # ---------- 上游这版 ----------
@@ -90,12 +111,27 @@ if [ -n "$UP" ] && command -v gh >/dev/null 2>&1; then
     fi
 fi
 
-# 本包自身的版本号与发布时间（UTC+8，具体到分钟）—— 弹窗第一行就要能看清装的是哪一版，
-# 否则只写「上游 xxx」的话，两个本包版本用的是同一个运行体时根本分不出新旧。
-BUILT=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M')
+# 本包版本号里已经带了日期和当日序号，这里只补「发布时刻 + 时区」，
+# 不再重复日期（26.11.07_2 → 22:56 UTC+8）。
+BUILT="$(TZ=Asia/Shanghai date '+%H:%M') UTC+8"
+
+# 先把本版要展示的条目记进账本，再写产物：
+# 这样同一版本重复出包（force）时，上一轮已展示过的条目会被 _fresh 剔掉，不会重复贴。
+if [ -n "$self_body" ]; then
+    _norm_block=$(printf '%s\n' "$self_body" | while IFS= read -r _b; do
+        case "$_b" in ""|" "*) continue ;; esac
+        _norm "$_b"; echo
+    done)
+    _norm_block=$(printf '%s\n' "$_norm_block" | grep -v '^$' || true)
+    if [ -n "$_norm_block" ]; then
+        [ -f "$SEEN" ] || : > "$SEEN"
+        printf '%s\n' "$_norm_block" >> "$SEEN"
+        sort -u "$SEEN" -o "$SEEN"
+    fi
+fi
 
 {
-    printf '**本模块 %s**　构建于 %s\n' "$V" "$BUILT"
+    printf '**本模块 %s**　发布于 %s\n' "$V" "$BUILT"
 
     if [ -n "$self_body" ]; then
         echo
@@ -107,7 +143,7 @@ BUILT=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M')
         printf '**上游 %s 的改动**\n\n' "${UPVER:-新版本}"
         printf '%s\n' "$up_body"
     elif [ -z "$self_body" ]; then
-        # 本模块这版没有可展示的条目、也读不到上游 notes
+        # 本模块这版没有新条目、也读不到上游 notes
         echo
         printf -- '- 本版仅更新运行体到上游 `%s`，无其它改动。\n' "${UPVER:-新版本}"
     fi

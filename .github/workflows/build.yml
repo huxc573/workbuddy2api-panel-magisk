@@ -84,7 +84,7 @@ jobs:
           du=$(du -h "$zip" | cut -f1)
           cat > notes.md <<EOF
           # $V
-          构建于 $(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M')（UTC+8），运行体取自上游 [${UP}](${GITHUB_SERVER_URL}/${UP_REPO}/releases/tag/${UP})（官方 linux-arm64 包，原样取出未改）。
+          发布于 $(TZ=Asia/Shanghai date '+%H:%M') UTC+8，运行体取自上游 [${UP}](${GITHUB_SERVER_URL}/${UP_REPO}/releases/tag/${UP})（官方 linux-arm64 包，原样取出未改）。
 
           - 大小 $du，sha256 \`$sha\`
           - 安装：在管理器里刷入 zip（APatch / Magisk / KernelSU）；**首次安装要重启一次**，升级安装刷完即生效
@@ -124,7 +124,7 @@ jobs:
           # 原样展现在更新弹窗里，指向整份 CHANGELOG.md 的话用户会看到历史版本和开发笔记。
           # 里面写两段：本模块这版改了什么 + 上游这一版改了什么（读上游 release notes，
           # 去掉 New Contributors 与链接，只留条目）。上游那段拿不到就只出本模块的。
-          bash scripts/ci/changelog-current.sh "$V" "$UP" CHANGELOG.md CHANGELOG-current.md
+          bash scripts/ci/changelog-current.sh "$V" "$UP" CHANGELOG.md CHANGELOG-current.md .changelog-seen
 
           # zipUrl 走镜像前缀：国内直连 github.com/releases/download 基本拉不动
           # （实测直连 curl 直接 000，管理器点了「更新」也下不下来）。要直连把 GH_PROXY 置空。
@@ -141,10 +141,10 @@ jobs:
           echo "$UP" > UPSTREAM
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add UPSTREAM update.json CHANGELOG-current.md
+          git add UPSTREAM update.json CHANGELOG-current.md .changelog-seen
           # 上游没变时（force 出包）这一步可能没有 diff，跳过，别让 git commit 以 1 退出
           if git diff --cached --quiet; then
-            echo "UPSTREAM / update.json / CHANGELOG-current.md 都没变，跳过提交"
+            echo "UPSTREAM / update.json / CHANGELOG-current.md / .changelog-seen 都没变，跳过提交"
             exit 0
           fi
           git commit -m "chore: 发布 v$V（上游 $UP）"
