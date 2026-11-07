@@ -26,7 +26,10 @@ UPVER="${UP#v}"
 # 取 "## <V>" 到下一个 "## " 之间的内容。
 # ⚠ 不能只按 $V 精确匹配：CHANGELOG.md 里的版本号是「动手那天」写的（如 26.11.05_1），
 #   而 CI 每次跑的 $V 是当场算的序号（26.11.05_2、_3…），两者对不上就会一个字都取不到。
-#   所以先按 $V 找，找不到就退回到「第一条 ## 段落」（＝最新那版）。
+#   所以先按 $V 找；找不到再看这次提交有没有在 CHANGELOG.md 里新开一节 ——
+#   新开了才把最新那节当「本版改动」，没开就视为本版无模块改动（只出上游那段）。
+#   ⚠ 早期版本是无条件回退到「最新那版」，结果每发一个纯升运行体的包，
+#     弹窗里都重复贴同一条 05 日的旧文案，看着像版本发错了。
 _pick_self() {  # $1=要匹配的版本号；空 = 直接取第一条
     awk -v want="$1" '
         /^## / {
@@ -42,9 +45,23 @@ _pick_self() {  # $1=要匹配的版本号；空 = 直接取第一条
     ' "$SRC" 2>/dev/null || true
 }
 
+# HEAD 这次提交是否给 CHANGELOG.md **新增了段落**（改 CI / 改测试不该贴旧文案）
+_changelog_added() {
+    command -v git >/dev/null 2>&1 || return 1
+    git rev-parse HEAD >/dev/null 2>&1 || return 1
+    git rev-parse HEAD~1 >/dev/null 2>&1 || return 0    # 首个提交，当作有新增
+    _old=$(git show "HEAD~1:$SRC" 2>/dev/null | grep -c '^## ' || true)
+    _new=$(grep -c '^## ' "$SRC" 2>/dev/null || true)
+    [ "${_new:-0}" -gt "${_old:-0}" ]
+}
+
 self_body=$(_pick_self "$V")
 if [ -z "$(printf '%s' "$self_body" | tr -d '[:space:]')" ]; then
-    self_body=$(_pick_self "")
+    if _changelog_added; then
+        self_body=$(_pick_self "")
+    else
+        self_body=""
+    fi
 fi
 self_body=$(printf '%s\n' "$self_body" | sed -e '/./,$!d' | sed -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba')
 
