@@ -96,8 +96,15 @@ self_body=$(printf '%s\n' "$self_body" | sed -e '/./,$!d' | sed -e ':a' -e '/^\n
 #   **Full Changelog**: https://.../compare/a...b
 # 对用户有用的是第一条列表；"New Contributors" 和 Full Changelog 那一行删掉，
 # 每条后面的 " by @xxx in https://..." 也删掉 —— 弹窗里看链接没用，还特别长。
+#
+# ⚠ 上游有时（尤其连发几版时）release body 里只有一行 **Full Changelog**，
+#   没有 "## What's Changed" —— 照上面的规则筛完就是空，弹窗只剩「本包版本号」。
+#   这时从 Full Changelog 里把 `a...b` 抠出来，改用 compare API 取提交列表。
 up_body=""
+up_link=""
 if [ -n "$UP" ] && command -v gh >/dev/null 2>&1; then
+    # 每次都从**这一版上游 release 的正文**里现取，不写死任何 tag：
+    # 上游连发几版时 body 可能只有一行 **Full Changelog**，链接里的 a...b 也跟着变。
     notes=$(gh release view "$UP" -R "$UP_REPO" --json body --jq .body 2>/dev/null || true)
     if [ -n "$notes" ]; then
         up_body=$(printf '%s\n' "$notes" | awk '
@@ -108,6 +115,24 @@ if [ -n "$UP" ] && command -v gh >/dev/null 2>&1; then
             /^\* / || /^- / { print }
         ' | sed -e 's/[[:space:]]\+by[[:space:]]\+@[^ ]*[[:space:]]\+in[[:space:]]\+https\{0,1\}:[^ ]*$//' \
               -e 's/[[:space:]]*$//' || true)
+    fi
+
+    # 顺手把正文里的对比链接抠出来（有就留着，没有就自己按上一版拼）
+    _mlink=$(printf '%s\n' "$notes" | sed -n 's|.*\(https://[^ )]*/compare/[^ )]*\).*|\1|p' | head -n1)
+    range=$(printf '%s\n' "$_mlink" | sed -n 's|.*/compare/\([^ )]*\)$|\1|p')
+
+    # 兜底：release notes 里没条目 → 用 compare API 拉两次 tag 之间的提交
+    if [ -z "$(printf '%s' "$up_body" | tr -d '[:space:]')" ]; then
+        if [ -n "$range" ]; then
+            up_body=$(gh api "repos/$UP_REPO/compare/$range" \
+                        --jq '.commits[] | .commit.message | split("\n")[0]' 2>/dev/null \
+                      | awk 'NF' \
+                      | sed -e 's/[[:space:]]*$//' -e 's/^/* /' || true)
+        fi
+    fi
+    # 有对比范围就给链接（正文的优先，其次按 range 拼官网地址），纯动态，不写死
+    if [ -n "$range" ] && [ -n "$(printf '%s' "$up_body" | tr -d '[:space:]')" ]; then
+        up_link="${_mlink:-https://github.com/$UP_REPO/compare/$range}"
     fi
 fi
 
@@ -142,6 +167,11 @@ fi
         echo
         printf '**上游 %s 的改动**\n\n' "${UPVER:-新版本}"
         printf '%s\n' "$up_body"
+        # 上游没写 release notes、条目取自提交记录时，附一行完整对比链接：
+        # 弹窗里不可点也没关系，用户可以照着敲，或者去 Releases 页看。
+        if [ -n "$up_link" ]; then
+            printf '\n完整对比：%s\n' "$up_link"
+        fi
     elif [ -z "$self_body" ]; then
         # 本模块这版没有新条目、也读不到上游 notes
         echo
