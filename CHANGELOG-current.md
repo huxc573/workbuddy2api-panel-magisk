@@ -1,15 +1,10 @@
-**本模块 26.11.10_3**　发布于 19:22 UTC+8
+**本模块 26.11.11_1**　发布于 02:02 UTC+8
 
-**上游 2026.11.10.1436 的改动**
+**上游 2026.11.10.2230 的改动**
 
-* fix(upstream): 资料接口空昵称不再静默成功，并兼容顶层平铺响应
-* feat(panel): 账号导入支持多文件，选中先预览、确认再写入
-* fix(responses): 工具调用缺函数名被丢弃时留 WARN，不再静默
-* feat(server): 工具轮里「说一句就停」时试续一次，只采纳工具调用
-* chore(diag): narration/toolonly 记录尾部片段与续写结果
-* feat: 运行日志落盘+导出、上游劣化滑窗告警、选号策略可配
-* fix(server): 直连传输层失败记到出口，不再按轮转逐号记连败
-* feat: 额度窗口探针、号池分区、代理订阅导入
-* revert(scope): 撤销号池分区，文本/媒体不再需要人工标注
+* fix(server): 正文里写成文本的工具调用（DSML）不再触发续写
+* fix(panel): 单选框不再被全局 100% 宽撑开，与文字错位 (#202)
+* chore(deps): klauspost/compress v1.17.4 -> v1.20.2，消掉可达漏洞 GO-2026-6865 (#204)
+* feat(server): /v1/models 透出 promo_factor / promo_credits / promo_label (#203)
 
 详情点击打开后，查看更新记录。
