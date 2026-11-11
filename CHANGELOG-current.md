@@ -1,10 +1,8 @@
-**本模块 26.11.11_1**　发布于 02:02 UTC+8
+**本模块 26.11.11_2**　发布于 14:52 UTC+8
 
-**上游 2026.11.10.2230 的改动**
+**上游 2026.11.11.832 的改动**
 
-* fix(server): 正文里写成文本的工具调用（DSML）不再触发续写
-* fix(panel): 单选框不再被全局 100% 宽撑开，与文字错位 (#202)
-* chore(deps): klauspost/compress v1.17.4 -> v1.20.2，消掉可达漏洞 GO-2026-6865 (#204)
-* feat(server): /v1/models 透出 promo_factor / promo_credits / promo_label (#203)
+* fix(server): 等上游首帧期间补 SSE 注释帧，客户端不再干等 3~6 秒
+* test(billing): dayAt 用当日 00:00 采样，修掉按运行时刻漂移的既有用例
 
 详情点击打开后，查看更新记录。
