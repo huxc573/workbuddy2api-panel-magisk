@@ -1,8 +1,7 @@
-**本模块 26.11.11_2**　发布于 14:52 UTC+8
+**本模块 26.11.12_1**　发布于 19:36 UTC+8
 
-**上游 2026.11.11.832 的改动**
+**上游 2026.11.12.1729 的改动**
 
-* fix(server): 等上游首帧期间补 SSE 注释帧，客户端不再干等 3~6 秒
-* test(billing): dayAt 用当日 00:00 采样，修掉按运行时刻漂移的既有用例
+* {"message":"Not Found","documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"404"}
 
 详情点击打开后，查看更新记录。
