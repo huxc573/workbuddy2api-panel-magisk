@@ -1,7 +1,9 @@
-**本模块 26.11.12_1**　发布于 19:36 UTC+8
+**本模块 26.11.16_1**　发布于 01:19 UTC+8
 
-**上游 2026.11.12.1729 的改动**
+**上游 2026.11.15.2246 的改动**
 
-* {"message":"Not Found","documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"404"}
+* feat(campaign): 领奖后回读 claimed_at 才算入账
+* fix(server): 平静期后连坐暂停的 streak 真的清零（main 上的 CI 一直是红的）
+* fix(server): 句号收尾的「我继续/接下来」不再被当成最终答复
 
 详情点击打开后，查看更新记录。
