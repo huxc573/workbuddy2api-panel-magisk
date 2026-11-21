@@ -58,8 +58,9 @@ set_perm_recursive "$DATA_DIR" 0 0 0700 0600
 # 业界做法（OpenList-Magisk / box_for_magisk 等）是读 /dev/input 的音量键：
 #   音量下 = 切下一项，音量上 = 确认。
 # ⚠ 必须带倒计时：无超时的死等会让不按键的人永远卡在进度条上。
-WB2A_SETTLE=${WB2A_SETTLE:-5}   # 无操作多少秒算「采用当前项」
-_LEFT=""                        # ""=每题都计时  "0"=剩下的问题全按默认、不再问
+WB2A_SETTLE=${WB2A_SETTLE:-5}   # 第一个问题等多少秒，超时就「免配置」
+_SKIP=0                         # 1=用户第一题就没按 ⇒ 后面所有问题直接取默认
+_SKIPPED_ONCE=""                # ""=第一题还没问过（决定要不要上倒计时）
 
 # 最多阻塞 1 秒；只认 KEY_VOLUMEUP / KEY_VOLUMEDOWN 的按下事件。
 # `-qlc 1`：-q 静默（不打设备头）、-l 一直听、-c 1 读满 1 个事件就退出。
@@ -85,8 +86,10 @@ _nth() {
 }
 
 # choose "标题" 默认序号 选项1 选项2 ...  ⇒ 结果在 $CHOICE，采用值在 $PICKED
-# N 秒（默认 5）没有按键就采用当前项（＝默认项）；全程一次都没按，第一个问题超时后
-# 剩下的直接走默认、不再逐个等 —— 不想配的人刷完就不管了。
+# 只有**第一个问题**带 N 秒（默认 5）倒计时；超时就进入「免配置」：后面所有问题
+# （含「是否重新设置」）一律取默认，不再问、不再等。
+# 理由：会按键的人后面自己会选，每题倒计时反而会在挑选时被自动确认打乱；
+#       第一题就不按＝没人守着装，整套配置走默认最省事。
 choose() {
     _ct=$1; _cd=$2; shift 2
     _cn=$#
@@ -98,34 +101,49 @@ choose() {
         ui_print "- $_ct: $PICKED（本机没有 getevent，取默认）"
         return
     fi
-    if [ "$_LEFT" = "0" ]; then
+    # 第一题没按过 ⇒ 免配置：后面的问题（含「是否重新设置」）直接取默认
+    if [ "$_SKIP" = "1" ]; then
         CHOICE=$_cd; PICKED=$_def
-        ui_print "- $_ct: $PICKED（未操作，按默认）"
+        ui_print "- $_ct: $PICKED（免配置，按默认）"
         return
     fi
 
+    _first=""
+    [ "$_SKIPPED_ONCE" != "1" ] && _first=1
+
     ui_print " "
-    ui_print "- $_ct: 音量下=切换  音量上=确认  不按=${WB2A_SETTLE}秒后自动采用"
+    if [ -n "$_first" ]; then
+        ui_print "- $_ct: 音量下=切换  音量上=确认  不按=${WB2A_SETTLE}秒后自动采用"
+    else
+        ui_print "- $_ct: 音量下=切换  音量上=确认"
+    fi
     ui_print "  → $(_nth "$_cur" "$@")"
 
     _left=$WB2A_SETTLE
     _touched=""        # 本问题里有没有按过键
     _confirmed=""
-    while [ "$_left" -gt 0 ]; do
+    while :; do
         _key_once      # 全局回传 _KEY；不能写 $(_key_once)，subshell 会把赋值丢掉
         if [ "$_KEY" = "down" ]; then
             _touched=1
             _cur=$((_cur % _cn + 1))
-            _left=$WB2A_SETTLE      # 切换动作重置倒计时（还在挑，不算犹豫）
-            ui_print "  → $(_nth "$_cur" "$@")  (${_left}s)"
+            [ -n "$_first" ] && _left=$WB2A_SETTLE   # 第一题切换时重置倒计时（还在挑）
+            if [ -n "$_first" ]; then
+                ui_print "  → $(_nth "$_cur" "$@")  (${_left}s)"
+            else
+                ui_print "  → $(_nth "$_cur" "$@")"
+            fi
             continue
         fi
         if [ "$_KEY" = "up" ]; then
             _touched=1; _confirmed=1
             break
         fi
+        # 只有第一题扣倒计时；其余问题一直等到按键，不会自己走
+        [ -n "$_first" ] || continue
         _left=$((_left - 1))
-        [ "$_left" -gt 0 ] && ui_print "  …${_left}s"
+        if [ "$_left" -le 0 ]; then break; fi
+        ui_print "  …${_left}s"
         # _key_once 已阻塞约 1 秒，这里不再补 sleep，免得把倒计时拉成 2 倍
     done
 
@@ -133,11 +151,14 @@ choose() {
     PICKED=$(_nth "$_cur" "$@")
     if [ -n "$_confirmed" ]; then
         ui_print "- $_ct: $PICKED"
+        _SKIPPED_ONCE=1
     elif [ -n "$_touched" ]; then
         ui_print "- $_ct: $PICKED（超时未确认）"
+        _SKIPPED_ONCE=1
     else
         ui_print "- $_ct: $PICKED（超时，按默认）"
-        _LEFT=0        # 一次都没碰过 ⇒ 没人守着装，后面的问题不再等
+        _SKIP=1        # 一个键都没碰 ⇒ 免配置，后面的问题全按默认
+        _SKIPPED_ONCE=1
     fi
     # 确认后停一下：音量上键松得慢的话，残留事件会把下一个问题也秒确认掉
     sleep 0.4 2>/dev/null || sleep 1

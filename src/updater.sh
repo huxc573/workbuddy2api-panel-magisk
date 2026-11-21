@@ -358,6 +358,15 @@ tick() {
 }
 
 mkdir -p "$WORK" 2>/dev/null
+# 顺手清掉上次异常退出留下的假 pidfile：daemon 正常退出时 trap 会删，
+# 但被 KILL -9 时就留在那儿，下次 start 会以为「定时器还活着」而不再拉起。
+case "$1" in
+    daemon)
+        _oldp=$(cat "$WORK/update.timer.pid" 2>/dev/null)
+        if [ -n "$_oldp" ] && ! kill -0 "$_oldp" 2>/dev/null; then
+            rm -f "$WORK/update.timer.pid" 2>/dev/null
+        fi ;;
+esac
 
 # daemon：睡到下一个目标时刻再醒，醒了跑一次 tick。
 # 单次睡眠封顶 1800 秒：手机深睡会把 sleep 拉长、用户也可能改钟点，

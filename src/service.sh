@@ -107,7 +107,17 @@ start_update_timer() {
             return 0
         fi
     fi
+    # daemon 自己会把 pid 写进 update.timer.pid；这里不要提前写，
+    # 否则它起不来时 pidfile 里躺着一个假 pid，看起来像「定时器在跑」。
     setsid sh "$MODDIR/updater.sh" daemon >/dev/null 2>&1 < /dev/null &
+    # 起完回读一次：拿不到 pid 就在 run.log 里留痕，别让「自动更新没效果」无从查起
+    _i=0
+    while [ "$_i" -lt 10 ] && [ ! -s "$WORK/update.timer.pid" ]; do
+        sleep 0.2 2>/dev/null || sleep 1
+        _i=$((_i + 1))
+    done
+    [ -s "$WORK/update.timer.pid" ] || \
+        echo "$(date '+%m-%d %H:%M') 自动更新定时器没起来（setsid updater.sh daemon 无响应）" >> "$WORK/run.log"
     return 0
 }
 
