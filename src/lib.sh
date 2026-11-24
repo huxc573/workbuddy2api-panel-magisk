@@ -155,8 +155,13 @@ iface_ip() {
 wlan_ip() {
     _v=$(iface_ip wlan0)
     [ -n "$_v" ] && { echo "$_v"; return; }
+    # ⚠ ifconfig 兜底这行不能写 `\(wlan\|ap\)`：Android 的 sed 是 toybox 版，
+    #   不支持 BRE 的 `\|` 交替，整条正则永不匹配（2026-11-21 在 10.5.9.53 实测）。
+    #   拆成两条 -e 表达式，GNU / toybox / busybox 都认。
     for _d in $(ip -4 -o addr show 2>/dev/null | awk '{print $2}' | grep -E '^(wlan|ap)') \
-              $(ifconfig -a 2>/dev/null | sed -n 's/^\(\(wlan\|ap\)[a-zA-Z0-9_]*\)[[:space:]:].*/\1/p'); do
+              $(ifconfig -a 2>/dev/null | sed -n \
+                    -e 's/^\(wlan[a-zA-Z0-9_]*\)[[:space:]:].*/\1/p' \
+                    -e 's/^\(ap[a-zA-Z0-9_]*\)[[:space:]:].*/\1/p'); do
         [ "$_d" = wlan0 ] && continue
         _v=$(iface_ip "$_d")
         [ -n "$_v" ] && { echo "$_v"; return; }

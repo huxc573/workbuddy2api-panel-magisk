@@ -173,8 +173,16 @@ vercmp_gt() {
 # 从 releases 列表里挑最高版本（跳过 draft）。$1=json 文件 → 输出 tag
 pick_tag() {
     _pc="$WORK/.cand"
+    # ⚠⚠ 不能写成 `\(true\|false\)`：Android 的 sed 是 toybox 版
+    #   （`sed --version` → "toybox 0.8.12-android (is not GNU sed)"），
+    #   不支持 BRE 的 `\|` 交替 ⇒ 正则一个都不匹配、候选表恒空 ⇒
+    #   check_once 报「release 列表里没有可用 tag」，看着像网络问题，
+    #   实际网络是通的（2026-11-21 在 10.5.9.53 上实测：\| 版输出为空，
+    #   拆两条表达式输出正常）。拆成两条独立表达式，GNU / toybox / busybox 都认。
     tr -d ' \n\r\t' < "$1" | sed 's/},{/}\n{/g' \
-        | sed -n 's/.*"tag_name":"\([^"]*\)".*"draft":\(true\|false\).*/\1 \2/p' > "$_pc" 2>/dev/null
+        | sed -n 's/.*"tag_name":"\([^"]*\)".*"draft":\(true\).*/\1 true/p;s/.*"tag_name":"\([^"]*\)".*"draft":\(false\).*/\1 false/p' > "$_pc" 2>/dev/null
+    # 解析不出来就别装没事发生：留着空表往下走只会报「无可用 tag」，查不出根因
+    [ -s "$_pc" ] || say "  release 列表解析为空（JSON 结构变了，或 sed 不兼容？）"
     _best=""
     while read -r _t _dr; do
         [ -n "$_t" ] || continue

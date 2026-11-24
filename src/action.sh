@@ -30,7 +30,14 @@ auto_status() {
         [0-9]:[0-9][0-9] | [01][0-9]:[0-9][0-9] | 2[0-3]:[0-9][0-9]) : ;;
         *) _at=04:00 ;;
     esac
-    echo "开启（每天 $_at）"
+    # 光有开关不算数：daemon 没在跑就不会真的去查。把 pid 也报出来，
+    # 「开了却没效果」一眼能看出是定时器没起来，还是起来了但网络失败。
+    _t=$(tr -dc '0-9' < "$WORK/update.timer.pid" 2>/dev/null)
+    if [ -z "$_t" ] || ! kill -0 "$_t" 2>/dev/null; then
+        echo "开启（每天 $_at）｜定时器未运行"
+        return
+    fi
+    echo "开启（每天 $_at）｜定时器 pid $_t"
 }
 
 set_kv() {
