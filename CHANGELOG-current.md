@@ -1,18 +1,20 @@
-**本模块 26.11.27_1**　发布于 11:00 UTC+8
+**本模块 26.11.28_1**　发布于 14:44 UTC+8
+
+- 自动更新换完运行体后，管理器模块列表里的版本行会同步显示新的运行体版本，不再一直显示刷入时那个旧版本号（在此之前运行体其实已经换过几轮，但看不出来）。
 
 **上游 2026.11.27.1055 的改动**
 
-* fix(embeddings): 请求级错误码改成 input_too_large、日志带上游 code（#290）
-* fix(upstream): tool 配对吸收 hub #26 三修：相邻批合并、孤儿不遮挡、重复结果去重
-* fix(upstream): TraeCode 自述句进脱敏表（参考 hub 2026-11-24 CN 池实测）
-* docs(readme): 补 embeddings 单条 input 上限与 input_too_large（#290）
-* fix(embeddings): 8 MiB 请求体 413 的错误码改成 payload_too_large（#290）
-* feat(panel): 模型规则页账号列右侧显示积分余额（#291）
-* feat(panel): 积分到期分布每行可展开看每段金额（#294）
-* fix(server): zero-tool-calls 收尾日志带上 tok/think
-* fix(server,pool,scheduler): 截断上游回执按 rune 边界，别再劈开汉字
-* feat(prompt): 可选把 system 挪到消息末尾，救回被每轮变 system 打碎的前缀缓存（issue #293）
-* feat(upstream): 数出「缺 calls 包裹的 invoke 块」，先量发生率不猜着转
-* chore(autobot): 补 3304711297/workbuddy2api 到参考仓库清单
+- **可选把 system 挪到消息末尾**（`features.system_tail`，默认关、仅 cn 域）：客户端每轮都改 system（工作目录 / git 状态 / 当天日期）时，system 留在头部会让前缀从第 0 个 token 就分叉，长历史全量重算。真号实测 31.5K 前缀下：头部 system 每轮变 → 命中 **0.0%**；尾部 system 每轮变 → **99.3% / 99.2%**。上游确认遵守位于历史之后的 system。对 system 本来稳定的客户端是负收益，所以默认关。
+- 面板：模型规则页账号列右侧显示积分余额（#291）。
+- 面板：积分到期分布每行可展开，看每段金额（#294）。
+- 截断上游回执按 rune 边界：`��` 的成因是按字节切汉字（一个汉字被切 2+1），三处改走 `logfmt.Truncate`。
+- 8 MiB 请求体超限的 413 错误码统一为 `payload_too_large`（#290）；embedding 单条 input 超限仍是 400 + `input_too_large`，README 补边界说明。
+- 请求级 embedding 错误码改 `input_too_large`，日志带上游 `code`（#290）。
+- 工具配对吸收三项：相邻批合并、孤儿块不遮挡后续配对、同一 `call_id` 只留第一条结果。
+- 脱敏表补 TraeCode 自述句。
+- zero-tool-calls 收尾日志带上 `tok` / `think`，可区分「答到一半没了」和「真答完」。
+- DSML 缺外层 `calls` 包裹的 invoke 块（DeepSeek 系长上下文缺陷）现在会计数并打一行 WARN。没有转换分支是故意的：线上零例时凭空写「没包裹也认」会在「模型讨论这段语法」上误判。
+- `system_tail` 端到端实测（同一单号、同形态两轮，只有 system 里日期变一个字）：关 → 0.0% / 0.0%；开 → 68.5% / 70.2%（命中上限 = 稳定前缀，system 那段本身每轮仍 miss，符合预期）。
+- 新增用例均验过 RED→GREEN，`prompt` / `upstream` / `server` / `cmd/server` 四包全绿。
 
 详情点击打开后，查看更新记录。
