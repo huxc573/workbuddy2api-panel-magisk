@@ -329,6 +329,26 @@ check_once() {
 
     printf '%s\n' "$_tag" > "$VERF"
 
+    # 同步 module.prop 里的运行体版本（`version=<模块版> (wb2a <上游 tag>)` 的括号段）。
+    # ⛔ 不同步的话，管理器模块列表里永远显示刷包时那个旧 tag，运行体明明换了好几轮
+    #    也看不出来 —— 现象就是「自动更新开了却像没更新」（2026-11-28 在 OP12 上确认）。
+    # versionCode 不动：它对应模块包版本，自动更新只换运行体、没刷包，改了反而骗自己。
+    # 写法同 refresh.sh：写临时文件再 mv，不用 sed -i（某些挂载点会静默失败）。
+    _mp="$MODDIR/module.prop"
+    if [ -f "$_mp" ] && { [ -w "$_mp" ] || [ "$(id -u 2>/dev/null)" = "0" ]; }; then
+        _newv=$(printf '%s' "$_tag" | sed 's/^[vV]//')
+        _modv=$(sed -n 's/^version=\([^ 	]*\).*/\1/p' "$_mp" 2>/dev/null | head -n1)
+        [ -n "$_modv" ] || _modv=""
+        if { grep -v '^version=' "$_mp"; printf 'version=%s (wb2a %s)\n' "$_modv" "$_newv"; } > "$_mp.tmp" 2>/dev/null &&
+           mv -f "$_mp.tmp" "$_mp" 2>/dev/null; then
+            chmod 0644 "$_mp" 2>/dev/null
+            say "模块说明里的运行体版本已同步为 $_newv"
+        else
+            rm -f "$_mp.tmp" 2>/dev/null
+            say "  写 module.prop 失败，版本号仍显示旧的"
+        fi
+    fi
+
     _rs=$(conf_get WB2A_UPDATE_RESTART)
     [ -n "$_rs" ] || _rs=1
     if [ "$_rs" = "0" ]; then
